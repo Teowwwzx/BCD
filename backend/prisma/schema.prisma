@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  Manufacturer
+  Supplier
+  Distributor
+  Retailer
+  Logistics
+}
+
+enum ProductStatus {
+  Available
+  InEscrow
+  Sold
+  Delisted
+}
+
+enum OrderStatus {
+  AwaitingPayment
+  AwaitingShipment
+  InTransit
+  Delivered
+  Completed
+  Disputed
+  Cancelled
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  walletAddress     String    @unique @map("wallet_address") @db.VarChar(42)
+  username          String?   @unique @db.VarChar(50)
+  email             String?   @unique @db.VarChar(255)
+  profileImageUrl   String?   @map("profile_image_url") @db.VarChar(255)
+  bio               String?   @db.Text
+  userRole          UserRole  @map("user_role")
+  reputationScore   Int       @default(0) @map("reputation_score")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  productsAsSeller  Product[] @relation("ProductSeller")
+  ordersAsBuyer     Order[]   @relation("OrderBuyer")
+  ordersAsSeller    Order[]   @relation("OrderSeller")
+  ordersAsTransporter Order[] @relation("OrderTransporter")
+  shipments         Shipment[]
+  reviewsGiven      Review[]  @relation("ReviewerUser")
+  reviewsReceived   Review[]  @relation("RevieweeUser")
+
+  @@map("users")
+}
+
+model Product {
+  id                Int           @id @default(autoincrement())
+  sellerId          Int           @map("seller_id")
+  onChainListingId  Int?          @map("on_chain_listing_id")
+  name              String        @db.VarChar(255)
+  description       String?       @db.Text
+  category          String?       @db.VarChar(100)
+  price             Decimal       @db.Decimal(18, 6)
+  quantity          Int
+  location          String?       @db.VarChar(255)
+  imageUrl          String?       @map("image_url") @db.VarChar(255)
+  status            ProductStatus @default(Available)
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  seller            User          @relation("ProductSeller", fields: [sellerId], references: [id])
+  orders            Order[]
+  attachments       Attachment[]
+
+  @@map("products")
+}
+
+model Order {
+  id                Int         @id @default(autoincrement())
+  productId         Int         @map("product_id")
+  buyerId           Int         @map("buyer_id")
+  sellerId          Int         @map("seller_id")
+  transporterId     Int?        @map("transporter_id")
+  onChainTxHash     String      @unique @map("on_chain_tx_hash") @db.VarChar(66)
+  finalPrice        Decimal     @map("final_price") @db.Decimal(18, 6)
+  quantityPurchased Int         @map("quantity_purchased")
+  status            OrderStatus
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  product           Product     @relation(fields: [productId], references: [id])
+  buyer             User        @relation("OrderBuyer", fields: [buyerId], references: [id])
+  seller            User        @relation("OrderSeller", fields: [sellerId], references: [id])
+  transporter       User?       @relation("OrderTransporter", fields: [transporterId], references: [id])
+  shipment          Shipment?
+  reviews           Review[]
+
+  @@map("orders")
+}
+
+model Shipment {
+  id                    Int       @id @default(autoincrement())
+  orderId               Int       @unique @map("order_id")
+  transporterId         Int       @map("transporter_id")
+  trackingNumber        String?   @map("tracking_number") @db.VarChar(100)
+  shippedAt             DateTime? @map("shipped_at")
+  estimatedDelivery     DateTime? @map("estimated_delivery")
+  deliveredAt           DateTime? @map("delivered_at")
+  proofOfDeliveryHash   String?   @map("proof_of_delivery_hash") @db.VarChar(66)
+
+  // Relations
+  order                 Order     @relation(fields: [orderId], references: [id])
+  transporter           User      @relation(fields: [transporterId], references: [id])
+
+  @@map("shipments")
+}
+
+model Review {
+  id                Int      @id @default(autoincrement())
+  orderId           Int      @map("order_id")
+  reviewerId        Int      @map("reviewer_id")
+  revieweeId        Int      @map("reviewee_id")
+  rating            Int      // 1-5 rating
+  comment           String?  @db.Text
+  onChainReviewHash String?  @unique @map("on_chain_review_hash") @db.VarChar(66)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order             Order    @relation(fields: [orderId], references: [id])
+  reviewer          User     @relation("ReviewerUser", fields: [reviewerId], references: [id])
+  reviewee          User     @relation("RevieweeUser", fields: [revieweeId], references: [id])
+
+  @@map("reviews")
+}
+
+model Attachment {
+  id          Int      @id @default(autoincrement())
+  productId   Int      @map("product_id")
+  fileName    String   @map("file_name") @db.VarChar(255)
+  fileUrl     String   @map("file_url") @db.VarChar(255)
+  description String?  @db.VarChar(255)
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+
+  // Relations
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@map("attachments")
+}
