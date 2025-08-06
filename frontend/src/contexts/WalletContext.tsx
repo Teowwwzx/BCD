@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { connectWallet as web3ConnectWallet, getProvider } from '../lib/web3';
 
 interface User {
   id: string;
@@ -19,12 +20,15 @@ interface WalletContextType {
   walletAddress: string;
   user: User | null;
   isLoggedIn: boolean;
+  isConnecting: boolean;
+  error: string | null;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
+  clearError: () => void;
 }
 
 interface RegisterData {
@@ -53,62 +57,123 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [walletAddress, setWalletAddress] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load saved state from localStorage on mount
   useEffect(() => {
-    const savedWalletState = localStorage.getItem('walletConnected');
-    const savedWalletAddress = localStorage.getItem('walletAddress');
-    const savedUser = localStorage.getItem('user');
-    const savedLoginState = localStorage.getItem('isLoggedIn');
+    const checkWalletConnection = async () => {
+      if (typeof window === 'undefined') return;
+      
+      const savedWalletState = localStorage.getItem('walletConnected');
+      const savedWalletAddress = localStorage.getItem('walletAddress');
+      const savedUser = localStorage.getItem('user');
+      const savedLoginState = localStorage.getItem('isLoggedIn');
 
-    if (savedWalletState === 'true' && savedWalletAddress) {
-      setIsWalletConnected(true);
-      setWalletAddress(savedWalletAddress);
-    }
+      if (savedWalletState === 'true' && savedWalletAddress && window.ethereum) {
+        try {
+          // Check if the wallet is still connected
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          
+          if (accounts.length > 0 && accounts[0].toLowerCase() === savedWalletAddress.toLowerCase()) {
+            setIsWalletConnected(true);
+            setWalletAddress(savedWalletAddress);
+          } else {
+            // Wallet was disconnected, clear saved data
+            localStorage.removeItem('walletConnected');
+            localStorage.removeItem('walletAddress');
+          }
+        } catch (err) {
+          console.error('Error checking wallet connection:', err);
+          localStorage.removeItem('walletConnected');
+          localStorage.removeItem('walletAddress');
+        }
+      }
 
-    if (savedLoginState === 'true' && savedUser) {
-      setIsLoggedIn(true);
-      setUser(JSON.parse(savedUser));
-    }
+      if (savedLoginState === 'true' && savedUser) {
+        setIsLoggedIn(true);
+        setUser(JSON.parse(savedUser));
+      }
+    };
+
+    checkWalletConnection();
   }, []);
 
-  const connectWallet = async () => {
-    try {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        // Request account access
-        const accounts = await window.ethereum.request({
-          method: 'eth_requestAccounts',
-        });
-        
-        if (accounts.length > 0) {
-          const address = accounts[0];
-          setIsWalletConnected(true);
-          setWalletAddress(address);
-          
-          // Save to localStorage
-          localStorage.setItem('walletConnected', 'true');
-          localStorage.setItem('walletAddress', address);
-          
-          console.log('Wallet connected successfully:', address);
-        }
-      } else {
-        alert('Please install MetaMask or another Web3 wallet');
+  // Listen for account changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.ethereum) return;
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        // User disconnected wallet
+        disconnectWallet();
+      } else if (accounts[0] !== walletAddress) {
+        // User switched accounts
+        setWalletAddress(accounts[0]);
+        localStorage.setItem('walletAddress', accounts[0]);
       }
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      alert('Failed to connect wallet. Please try again.');
+    };
+
+    const handleChainChanged = () => {
+      // Reload the page when chain changes
+      window.location.reload();
+    };
+
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+    window.ethereum.on('chainChanged', handleChainChanged);
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      }
+    };
+  }, [walletAddress]);
+
+  const connectWallet = async () => {
+    setIsConnecting(true);
+    setError(null);
+    
+    try {
+      // Check if MetaMask is installed
+      if (typeof window !== 'undefined' && !window.ethereum) {
+        throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
+      }
+
+      const address = await web3ConnectWallet();
+      setIsWalletConnected(true);
+      setWalletAddress(address);
+      
+      // Save to localStorage
+      localStorage.setItem('walletConnected', 'true');
+      localStorage.setItem('walletAddress', address);
+      
+      console.log('Wallet connected successfully:', address);
+      
+    } catch (err: any) {
+      console.error('Wallet connection error:', err);
+      setError(err.message || 'Failed to connect wallet');
+      setIsWalletConnected(false);
+      setWalletAddress('');
+    } finally {
+      setIsConnecting(false);
     }
   };
 
   const disconnectWallet = () => {
     setIsWalletConnected(false);
     setWalletAddress('');
+    setError(null);
     
     // Remove from localStorage
     localStorage.removeItem('walletConnected');
     localStorage.removeItem('walletAddress');
     
     console.log('Wallet disconnected');
+  };
+
+  const clearError = () => {
+    setError(null);
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -236,12 +301,15 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     walletAddress,
     user,
     isLoggedIn,
+    isConnecting,
+    error,
     connectWallet,
     disconnectWallet,
     login,
     register,
     logout,
-    updateUser
+    updateUser,
+    clearError
   };
 
   return (

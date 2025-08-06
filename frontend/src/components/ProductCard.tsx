@@ -1,33 +1,44 @@
 'use client';
 
+import React from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '../contexts/WalletContext';
 
 interface Product {
-  id: number;
+  id: number | string;
   name: string;
-  price: string;
+  price: number | string;
   image?: string;
   seller: string;
   rating: number;
   description?: string;
   category?: string;
   inStock?: boolean;
+  isBlockchain?: boolean;
+  blockchainData?: any;
 }
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart?: (productId: number) => void;
+  onAddToCart?: () => void;
   onViewDetails?: (productId: number) => void;
   className?: string;
+  loading?: boolean;
+  isBlockchain?: boolean;
+  requiresWallet?: boolean;
 }
 
 export default function ProductCard({ 
   product, 
   onAddToCart, 
   onViewDetails, 
-  className = '' 
+  className = '',
+  loading = false,
+  isBlockchain = false,
+  requiresWallet = false
 }: ProductCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -46,7 +57,7 @@ export default function ProductCard({
     setIsLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-      onAddToCart(product.id);
+      onAddToCart();
       console.log(`Added ${product.name} to cart`);
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -75,45 +86,72 @@ export default function ProductCard({
 
   const handleViewDetails = () => {
     if (onViewDetails) {
-      onViewDetails(product.id);
+      onViewDetails(Number(product.id));
     } else {
       // Default navigation to product details page
-      window.location.href = `/products/${product.id}`;
+      router.push(`/products/${product.id}`);
     }
   };
 
   const renderStars = (rating: number) => {
-    return [...Array(5)].map((_, i) => (
-      <svg 
-        key={i} 
-        className={`w-4 h-4 ${
-          i < Math.floor(rating) 
-            ? 'text-yellow-400 fill-current' 
-            : 'text-gray-300'
-        }`} 
-        viewBox="0 0 20 20"
+    return Array.from({ length: 5 }, (_, index) => (
+      <span
+        key={index}
+        className={`text-sm ${
+          index < Math.floor(rating) ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'
+        }`}
       >
-        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-      </svg>
+        ★
+      </span>
     ));
   };
 
+  const formatPrice = (price: number | string) => {
+    if (typeof price === 'number') {
+      return isBlockchain ? `${price.toFixed(4)} ETH` : `$${price.toFixed(2)}`;
+    }
+    return price;
+  };
+
+  const getButtonText = () => {
+    if (!product.inStock) return 'Out of Stock';
+    if (requiresWallet) return 'Connect Wallet';
+    if (loading || isLoading) return 'Processing...';
+    if (isBlockchain) return 'Purchase with ETH';
+    return 'Add to Cart';
+  };
+
+  const getButtonStyle = () => {
+    if (!product.inStock) {
+      return 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed';
+    }
+    if (requiresWallet) {
+      return 'bg-orange-600 text-white hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-800';
+    }
+    if (isBlockchain) {
+      return 'bg-purple-600 text-white hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800';
+    }
+    return 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800';
+  };
+
   return (
-    <div className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-gray-200 dark:border-gray-700 ${className}`}>
       {/* Product Image */}
       <div 
         className="aspect-square bg-gray-200 flex items-center justify-center cursor-pointer relative group"
         onClick={handleViewDetails}
       >
         {product.image && !imageError ? (
-          <img
+          <Image
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center text-gray-400">
+          <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
             <svg className="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -134,16 +172,23 @@ export default function ProductCard({
           </button>
         </div>
 
-        {/* Stock Status Badge */}
-        {product.inStock === false && (
-          <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-            Out of Stock
-          </div>
-        )}
+        {/* Status badges */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1">
+          {product.inStock === false && (
+            <div className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
+              Out of Stock
+            </div>
+          )}
+          {isBlockchain && (
+            <div className="bg-purple-500 text-white px-2 py-1 rounded text-xs font-medium">
+              Blockchain
+            </div>
+          )}
+        </div>
 
         {/* Category Badge */}
         {product.category && (
-          <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
+          <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
             {product.category}
           </div>
         )}
@@ -151,42 +196,43 @@ export default function ProductCard({
 
       {/* Product Info */}
       <div className="p-4">
-        <h3 
-          className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-blue-600 transition-colors line-clamp-2"
-          onClick={handleViewDetails}
-        >
-          {product.name}
-        </h3>
+        <div className="flex justify-between items-start mb-2">
+          <Link href={`/products/${product.id}`}>
+            <h3 className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 transition-colors line-clamp-2 flex-1 mr-2">
+              {product.name}
+            </h3>
+          </Link>
+          <span className="text-lg font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+            {formatPrice(product.price)}
+          </span>
+        </div>
         
-        <p className="text-sm text-gray-600 mb-2">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
           by <span className="font-medium">{product.seller}</span>
         </p>
         
         {/* Rating */}
         <div className="flex items-center mb-3">
-          <div className="flex">
+          <div className="flex mr-2">
             {renderStars(product.rating)}
           </div>
-          <span className="text-sm text-gray-600 ml-2">({product.rating})</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">({product.rating})</span>
         </div>
 
         {/* Description */}
         {product.description && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
             {product.description}
           </p>
         )}
         
-        {/* Price and Actions */}
+        {/* Actions */}
         <div className="flex flex-col space-y-3">
-          <span className="text-lg font-bold text-blue-600">
-            {product.price}
-          </span>
           
-          <div className="flex space-x-2">
+          <div className="flex justify-between items-center">
             <button
               onClick={handleViewDetails}
-              className="text-gray-600 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-gray-100"
+              className="text-gray-600 dark:text-gray-400 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               title="View Details"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,35 +243,33 @@ export default function ProductCard({
             
             <button
               onClick={handleAddToCart}
-              disabled={isLoading || product.inStock === false}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
-                product.inStock === false
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : isLoading
-                  ? 'bg-blue-400 text-white cursor-wait'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
-              }`}
+              disabled={!product.inStock || loading || isLoading}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 disabled:cursor-not-allowed ${getButtonStyle()}`}
             >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Adding...</span>
-                </div>
-              ) : product.inStock === false ? (
-                'Out of Stock'
-              ) : (
-                'Add to Cart'
+              {(loading || isLoading) && (
+                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
               )}
+              {getButtonText()}
             </button>
           </div>
           
           <button 
             onClick={handleBuyNow}
-            className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
+            className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 transition-colors font-medium"
           >
             Buy Now
           </button>
         </div>
+        
+        {/* Additional blockchain info */}
+        {isBlockchain && product.blockchainData && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+              <span>Quantity: {product.blockchainData.quantity}</span>
+              <span>Location: {product.blockchainData.location}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useWallet } from '../../contexts/WalletContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import BlockchainIntegration from '../../components/BlockchainIntegration';
 
 interface User {
   id: number;
@@ -207,6 +208,7 @@ const AdminDashboard: React.FC = () => {
           <nav className="flex space-x-8">
             {[
               { id: 'overview', label: 'Overview', icon: '📊' },
+              { id: 'blockchain', label: 'Blockchain', icon: '⛓️' },
               { id: 'users', label: 'Users', icon: '👥' },
               { id: 'products', label: 'Products', icon: '📦' },
               { id: 'orders', label: 'Orders', icon: '🛒' }
@@ -300,6 +302,13 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Blockchain Tab */}
+        {activeTab === 'blockchain' && (
+          <div>
+            <BlockchainIntegration />
           </div>
         )}
 

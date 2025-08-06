@@ -23,7 +23,7 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -47,8 +47,14 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`REQUEST LOG: ${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
+});
+
+// Test endpoint
+app.get('/test', (req, res) => {
+  console.log('Test endpoint hit!');
+  res.json({ message: 'Test endpoint working' });
 });
 
 // Health check endpoint
@@ -86,8 +92,12 @@ app.use('/api/users', usersRoutes);
 console.log('✓ Users routes loaded');
 
 console.log('Loading products routes...');
-app.use('/api/products', productsRoutes);
-console.log('✓ Products routes loaded');
+try {
+  app.use('/api/products', productsRoutes);
+  console.log('✓ Products routes loaded');
+} catch (error) {
+  console.error('Error loading products routes:', error);
+}
 
 console.log('Loading orders routes...');
 app.use('/api/orders', ordersRoutes);
@@ -128,6 +138,12 @@ app.use((err, req, res, next) => {
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error handler caught:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // 404 handler will be handled by Express default

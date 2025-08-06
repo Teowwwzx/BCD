@@ -3,10 +3,29 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract DSCMMarketplace is ReentrancyGuard, Ownable {
+contract DSCMMarketplace is ReentrancyGuard, Ownable, Pausable, AccessControl {
     uint256 private _listingIds;
     uint256 private _orderIds;
+    
+    // Role definitions
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant MODERATOR_ROLE = keccak256("MODERATOR_ROLE");
+    
+    // Security constants
+    uint256 public constant MAX_LISTING_PRICE = 1000 ether;
+    uint256 public constant MIN_LISTING_PRICE = 0.001 ether;
+    uint256 public constant MAX_QUANTITY = 10000;
+    
+    // Fee structure
+    uint256 public platformFeePercentage = 250; // 2.5% (basis points)
+    address public feeRecipient;
+    
+    // Security mappings
+    mapping(address => bool) public blacklistedUsers;
+    mapping(uint256 => uint256) public listingCreationTime;
     
     // Listing status enum
     enum ListingStatus { Active, Sold, Cancelled }
@@ -91,7 +110,12 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
         address indexed initiator
     );
     
-    constructor() Ownable(msg.sender) {}
+    constructor(address _feeRecipient) Ownable(msg.sender) {
+        require(_feeRecipient != address(0), "Invalid fee recipient");
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
+        feeRecipient = _feeRecipient;
+    }
     
     // Create a new product listing
     function createListing(
@@ -102,10 +126,13 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
         uint256 _quantity,
         string memory _location,
         string memory _imageUrl
-    ) external {
-        require(_price > 0, "Price must be greater than 0");
-        require(_quantity > 0, "Quantity must be greater than 0");
-        require(bytes(_name).length > 0, "Name cannot be empty");
+    ) external whenNotPaused {
+        require(!blacklistedUsers[msg.sender], "User is blacklisted");
+        require(_price >= MIN_LISTING_PRICE && _price <= MAX_LISTING_PRICE, "Price out of allowed range");
+        require(_quantity > 0 && _quantity <= MAX_QUANTITY, "Invalid quantity");
+        require(bytes(_name).length > 0 && bytes(_name).length <= 100, "Invalid name length");
+        require(bytes(_description).length <= 1000, "Description too long");
+        require(bytes(_category).length > 0 && bytes(_category).length <= 50, "Invalid category");
         
         _listingIds++;
         uint256 newListingId = _listingIds;
@@ -125,6 +152,7 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
         });
         
         userListings[msg.sender].push(newListingId);
+        listingCreationTime[newListingId] = block.timestamp;
         
         emit ListingCreated(newListingId, msg.sender, _name, _price, _quantity);
     }
@@ -133,9 +161,11 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
     function purchaseProduct(
         uint256 _listingId,
         uint256 _quantity
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         Listing storage listing = listings[_listingId];
         
+        require(!blacklistedUsers[msg.sender], "User is blacklisted");
+        require(!blacklistedUsers[listing.seller], "Seller is blacklisted");
         require(listing.listingId != 0, "Listing does not exist");
         require(listing.status == ListingStatus.Active, "Listing is not active");
         require(listing.seller != msg.sender, "Cannot buy your own product");
@@ -143,6 +173,10 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
         
         uint256 totalPrice = listing.price * _quantity;
         require(msg.value >= totalPrice, "Insufficient payment");
+        
+        // Calculate platform fee
+        uint256 platformFee = (totalPrice * platformFeePercentage) / 10000;
+        uint256 sellerAmount = totalPrice - platformFee;
         
         _orderIds++;
         uint256 newOrderId = _orderIds;
@@ -157,7 +191,7 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
             quantityPurchased: _quantity,
             status: OrderStatus.AwaitingShipment,
             createdAt: block.timestamp,
-            escrowAmount: msg.value,
+            escrowAmount: sellerAmount,
             buyerConfirmed: false,
             sellerConfirmed: false
         });
@@ -170,6 +204,18 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
         
         userOrders[msg.sender].push(newOrderId);
         userOrders[listing.seller].push(newOrderId);
+        
+        // Transfer platform fee immediately
+        if (platformFee > 0) {
+            (bool feeSuccess, ) = payable(feeRecipient).call{value: platformFee}("");
+            require(feeSuccess, "Platform fee transfer failed");
+        }
+        
+        // Refund excess payment
+        if (msg.value > totalPrice) {
+            (bool refundSuccess, ) = payable(msg.sender).call{value: msg.value - totalPrice}("");
+            require(refundSuccess, "Refund failed");
+        }
         
         emit OrderCreated(newOrderId, _listingId, msg.sender, listing.seller, totalPrice, _quantity);
     }
@@ -329,10 +375,51 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable {
         return userReputation[_user];
     }
     
+    // Security and admin functions
+    function pauseContract() external onlyRole(ADMIN_ROLE) {
+        _pause();
+    }
+    
+    function unpauseContract() external onlyRole(ADMIN_ROLE) {
+        _unpause();
+    }
+    
+    function blacklistUser(address _user) external onlyRole(ADMIN_ROLE) {
+        blacklistedUsers[_user] = true;
+    }
+    
+    function removeFromBlacklist(address _user) external onlyRole(ADMIN_ROLE) {
+        blacklistedUsers[_user] = false;
+    }
+    
+    function setPlatformFee(uint256 _feePercentage) external onlyRole(ADMIN_ROLE) {
+        require(_feePercentage <= 1000, "Fee cannot exceed 10%"); // Max 10%
+        platformFeePercentage = _feePercentage;
+    }
+    
+    function setFeeRecipient(address _feeRecipient) external onlyRole(ADMIN_ROLE) {
+        require(_feeRecipient != address(0), "Invalid fee recipient");
+        feeRecipient = _feeRecipient;
+    }
+    
+    function cancelListing(uint256 _listingId) external {
+        Listing storage listing = listings[_listingId];
+        require(listing.listingId != 0, "Listing does not exist");
+        require(msg.sender == listing.seller || hasRole(ADMIN_ROLE, msg.sender), "Not authorized");
+        require(listing.status == ListingStatus.Active, "Listing not active");
+        
+        listing.status = ListingStatus.Cancelled;
+    }
+    
     // Emergency functions (only owner)
     function emergencyWithdraw() external onlyOwner {
         (bool success, ) = payable(owner()).call{value: address(this).balance}("");
         require(success, "Withdrawal failed");
+    }
+    
+    // Override required by Solidity for multiple inheritance
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
     
     // Resolve dispute (only owner)

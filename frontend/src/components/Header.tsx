@@ -10,11 +10,15 @@ const Header: React.FC = () => {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const { 
     isWalletConnected, 
+    walletAddress,
     user, 
     isLoggedIn, 
     connectWallet, 
     disconnectWallet, 
-    logout 
+    logout,
+    isConnecting,
+    error,
+    clearError
   } = useWallet();
   const { cartCount } = useCart();
 
@@ -71,6 +75,23 @@ const Header: React.FC = () => {
                 </span>
               )}
             </a>
+
+            {/* Wallet Connection Error */}
+            {error && (
+              <div className="relative">
+                <div className="absolute right-0 top-8 bg-red-50 border border-red-200 rounded-lg p-3 shadow-lg z-50 min-w-64">
+                  <div className="flex justify-between items-start">
+                    <p className="text-sm text-red-800">{error}</p>
+                    <button
+                      onClick={clearError}
+                      className="text-red-600 hover:text-red-800 ml-2"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Profile Section */}
             {isLoggedIn && user ? (
@@ -150,9 +171,17 @@ const Header: React.FC = () => {
                 {!isWalletConnected && (
                   <button 
                     onClick={connectWallet}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                    disabled={isConnecting}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
-                    Connect Wallet
+                    {isConnecting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Connecting...</span>
+                      </>
+                    ) : (
+                      <span>Connect Wallet</span>
+                    )}
                   </button>
                 )}
                 <Link href="/auth">
@@ -238,9 +267,17 @@ const Header: React.FC = () => {
                 {!isWalletConnected && (
                   <button 
                     onClick={connectWallet}
-                    className="block w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    disabled={isConnecting}
+                    className="block w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                   >
-                    Connect Wallet
+                    {isConnecting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Connecting...</span>
+                      </>
+                    ) : (
+                      <span>Connect Wallet</span>
+                    )}
                   </button>
                 )}
                 <Link href="/auth">

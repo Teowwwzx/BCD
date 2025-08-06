@@ -1,8 +1,24 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const mockDb = require('../services/mockDatabase');
 const router = express.Router();
 
-const prisma = new PrismaClient();
+// Debug route
+router.get('/debug', (req, res) => {
+  console.log('Products debug route hit!');
+  res.json({ message: 'Products router is working' });
+});
+
+// Initialize Prisma with error handling
+let prisma;
+let useMockDb = false;
+
+try {
+  prisma = new PrismaClient();
+} catch (error) {
+  console.warn('Prisma initialization failed, using mock database:', error.message);
+  useMockDb = true;
+}
 
 // Create a new product listing
 router.post('/', async (req, res) => {
@@ -77,6 +93,20 @@ router.post('/', async (req, res) => {
 
 // Get all products with filtering and pagination
 router.get('/', async (req, res) => {
+  console.log('GET /api/products called');
+  console.log('useMockDb flag:', useMockDb);
+  
+  // Test database connection if not using mock
+  if (!useMockDb) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      console.log('Database connection successful');
+    } catch (dbError) {
+      console.warn('Database connection failed, switching to mock:', dbError.message);
+      useMockDb = true;
+    }
+  }
+  
   try {
     const {
       page = 1,
@@ -90,82 +120,164 @@ router.get('/', async (req, res) => {
       status = 'Available'
     } = req.query;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
+    let products, total;
 
-    // Build where clause
-    const where = {
-      status: status || 'Available'
-    };
-
-    if (category) {
-      where.category = category;
-    }
-
-    if (minPrice || maxPrice) {
-      where.price = {};
-      if (minPrice) where.price.gte = parseFloat(minPrice);
-      if (maxPrice) where.price.lte = parseFloat(maxPrice);
-    }
-
-    if (location) {
-      where.location = {
-        contains: location,
-        mode: 'insensitive'
-      };
-    }
-
-    if (search) {
-      where.OR = [
-        {
-          name: {
-            contains: search,
-            mode: 'insensitive'
-          }
-        },
-        {
-          description: {
-            contains: search,
-            mode: 'insensitive'
-          }
+    if (useMockDb) {
+      // Use mock database
+      const allProducts = await mockDb.getProducts();
+      
+      // Apply basic filtering for mock data
+      let filteredProducts = allProducts.filter(product => {
+        if (search) {
+          const searchLower = search.toLowerCase();
+          return product.name.toLowerCase().includes(searchLower) ||
+                 product.description.toLowerCase().includes(searchLower);
         }
-      ];
-    }
+        return true;
+      });
 
-    if (sellerId) {
-      where.sellerId = parseInt(sellerId);
-    }
+      if (minPrice) {
+        filteredProducts = filteredProducts.filter(p => p.price >= parseFloat(minPrice));
+      }
+      if (maxPrice) {
+        filteredProducts = filteredProducts.filter(p => p.price <= parseFloat(maxPrice));
+      }
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take,
-        include: {
+      total = filteredProducts.length;
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      products = filteredProducts.slice(skip, skip + parseInt(limit));
+
+      // Add mock seller data
+      products = products.map(product => ({
+        ...product,
+        seller: {
+          id: product.sellerId,
+          username: 'mock_seller',
+          walletAddress: '0x1234567890abcdef',
+          userRole: 'Seller',
+          reputationScore: 4.5
+        }
+      }));
+    } else {
+      // Use Prisma
+      try {
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const take = parseInt(limit);
+
+        // Build where clause
+        const where = {
+          status: status || 'Available'
+        };
+
+        if (category) {
+          where.category = category;
+        }
+
+        if (minPrice || maxPrice) {
+          where.price = {};
+          if (minPrice) where.price.gte = parseFloat(minPrice);
+          if (maxPrice) where.price.lte = parseFloat(maxPrice);
+        }
+
+        if (location) {
+          where.location = {
+            contains: location,
+            mode: 'insensitive'
+          };
+        }
+
+        if (search) {
+          where.OR = [
+            {
+              name: {
+                contains: search,
+                mode: 'insensitive'
+              }
+            },
+            {
+              description: {
+                contains: search,
+                mode: 'insensitive'
+              }
+            }
+          ];
+        }
+
+        if (sellerId) {
+          where.sellerId = parseInt(sellerId);
+        }
+
+        [products, total] = await Promise.all([
+          prisma.product.findMany({
+            where,
+            skip,
+            take,
+            include: {
+              seller: {
+                select: {
+                  id: true,
+                  username: true,
+                  walletAddress: true,
+                  userRole: true,
+                  reputationScore: true
+                }
+              },
+              _count: {
+                select: {
+                  orders: true
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          }),
+          prisma.product.count({ where })
+        ]);
+      } catch (dbError) {
+        console.warn('Database connection failed, falling back to mock database');
+        useMockDb = true;
+        
+        // Fallback to mock database
+        const allProducts = await mockDb.getProducts();
+        let filteredProducts = allProducts;
+        
+        if (search) {
+          const searchLower = search.toLowerCase();
+          filteredProducts = filteredProducts.filter(product =>
+            product.name.toLowerCase().includes(searchLower) ||
+            product.description.toLowerCase().includes(searchLower)
+          );
+        }
+
+        if (minPrice) {
+          filteredProducts = filteredProducts.filter(p => p.price >= parseFloat(minPrice));
+        }
+        if (maxPrice) {
+          filteredProducts = filteredProducts.filter(p => p.price <= parseFloat(maxPrice));
+        }
+
+        total = filteredProducts.length;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        products = filteredProducts.slice(skip, skip + parseInt(limit));
+
+        // Add mock seller data
+        products = products.map(product => ({
+          ...product,
           seller: {
-            select: {
-              id: true,
-              username: true,
-              walletAddress: true,
-              userRole: true,
-              reputationScore: true
-            }
-          },
-          _count: {
-            select: {
-              orders: true
-            }
+            id: product.sellerId,
+            username: 'mock_seller',
+            walletAddress: '0x1234567890abcdef',
+            userRole: 'Seller',
+            reputationScore: 4.5
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      }),
-      prisma.product.count({ where })
-    ]);
+        }));
+      }
+    }
 
     res.json({
-      products,
+      success: true,
+      data: products,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -212,6 +324,7 @@ router.get('/categories/list', async (req, res) => {
 
 // Get product by ID
 router.get('/:id', async (req, res) => {
+  console.log('GET /api/products/:id called with id:', req.params.id);
   try {
     const { id } = req.params;
     const productId = parseInt(id);
@@ -222,40 +335,84 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            username: true,
-            walletAddress: true,
-            userRole: true,
-            reputationScore: true,
-            profileImageUrl: true
-          }
-        },
-        orders: {
-          select: {
-            id: true,
-            buyerId: true,
-            quantityPurchased: true,
-            status: true,
-            createdAt: true,
-            buyer: {
-              select: {
-                username: true,
-                walletAddress: true
-              }
-            }
+    let product;
+
+    if (useMockDb) {
+      // Use mock database
+      product = await mockDb.getProduct(productId);
+      if (product) {
+        product = {
+          ...product,
+          seller: {
+            id: product.sellerId,
+            username: 'mock_seller',
+            walletAddress: '0x1234567890abcdef',
+            userRole: 'Seller',
+            reputationScore: 4.5,
+            profileImageUrl: null
           },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        attachments: true
+          orders: [],
+          attachments: []
+        };
       }
-    });
+    } else {
+      // Use Prisma
+      try {
+        product = await prisma.product.findUnique({
+          where: { id: productId },
+          include: {
+            seller: {
+              select: {
+                id: true,
+                username: true,
+                walletAddress: true,
+                userRole: true,
+                reputationScore: true,
+                profileImageUrl: true
+              }
+            },
+            orders: {
+              select: {
+                id: true,
+                buyerId: true,
+                quantityPurchased: true,
+                status: true,
+                createdAt: true,
+                buyer: {
+                  select: {
+                    username: true,
+                    walletAddress: true
+                  }
+                }
+              },
+              orderBy: {
+                createdAt: 'desc'
+              }
+            },
+            attachments: true
+          }
+        });
+      } catch (dbError) {
+        console.warn('Database connection failed, falling back to mock database');
+        useMockDb = true;
+        product = await mockDb.getProduct(productId);
+        if (product) {
+          product = {
+            ...product,
+            seller: {
+              id: product.sellerId,
+              username: 'mock_seller',
+              walletAddress: '0x1234567890abcdef',
+              userRole: 'Seller',
+              reputationScore: 4.5,
+              profileImageUrl: null
+            },
+            orders: [],
+            attachments: []
+          };
+        }
+      }
+    }
 
     if (!product) {
       return res.status(404).json({
@@ -263,7 +420,10 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    res.json({ product });
+    res.json({ 
+      success: true,
+      data: product 
+    });
   } catch (error) {
     console.error('Error fetching product:', error);
     res.status(500).json({
