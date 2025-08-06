@@ -50,9 +50,15 @@ const Header: React.FC = () => {
             <a href="/products" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors">
               Browse
             </a>
-            <a href="/sell" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors">
-              Sell
-            </a>
+            {isLoggedIn ? (
+              <a href="/sell" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors">
+                Sell
+              </a>
+            ) : (
+              <a href="/auth" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors">
+                Sell
+              </a>
+            )}
             {user?.userRole === 'Admin' && (
               <a href="/admin" className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 px-3 py-2 text-sm font-medium transition-colors flex items-center">
                 <span className="mr-1">🛡️</span>
@@ -215,9 +221,15 @@ const Header: React.FC = () => {
             <a href="/products" className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors rounded-lg">
               Browse
             </a>
-            <a href="/sell" className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors rounded-lg">
-              Sell
-            </a>
+            {isLoggedIn ? (
+              <a href="/sell" className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors rounded-lg">
+                Sell
+              </a>
+            ) : (
+              <a href="/auth" className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors rounded-lg">
+                Sell
+              </a>
+            )}
             <a href="/cart" className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors rounded-lg">
               Cart
             </a>

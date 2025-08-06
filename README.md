@@ -7,7 +7,20 @@ A hybrid on-chain/off-chain application for transparent and efficient supply cha
 ```
 BCD/
 ├── frontend/          # Next.js frontend application
+│   ├── src/
+│   │   ├── app/       # Next.js App Router pages
+│   │   ├── components/ # Reusable React components
+│   │   ├── contexts/  # React Context providers
+│   │   └── lib/       # Helper functions and utilities
+│   └── ...
 ├── backend/           # Node.js/Express backend with Hardhat
+│   ├── prisma/
+│   │   ├── migrations/ # Database migration files
+│   │   ├── schema.prisma # Prisma schema for database models
+│   │   └── seed.js    # Database seeder script
+│   ├── routes/      # API route definitions
+│   ├── services/    # Business logic and services
+│   └── ...
 └── README.md         # This file
 ```
 
@@ -90,6 +103,7 @@ Frontend will be available at http://localhost:3000
 - `npm run hardhat:test` - Run contract tests
 - `npm run hardhat:node` - Start local blockchain
 - `npm run hardhat:deploy` - Deploy contracts to local network
+- `npm run db:seed` - Seed the database with initial data
 
 ### Frontend Scripts
 - `npm run dev` - Start development server
@@ -101,6 +115,17 @@ Frontend will be available at http://localhost:3000
 
 - `GET /` - API status
 - `GET /api/health` - Health check
+
+### Database Seeding
+
+To populate the database with initial data, run the following command:
+
+```bash
+cd backend
+npm run db:seed
+```
+
+This will execute the `prisma/seed.js` script, which populates the database with sample users, products, and other necessary data.
 
 ## Environment Configuration
 

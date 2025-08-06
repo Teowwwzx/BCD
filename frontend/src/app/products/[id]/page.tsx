@@ -375,6 +375,10 @@ const ProductDetailPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
+                        if (!isLoggedIn) {
+                          router.push('/auth');
+                          return;
+                        }
                         handleAddToCart();
                         router.push('/cart');
                       }}
