@@ -58,7 +58,17 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       const data = await response.json();
       
       if (data.success) {
-        setCartItems(data.data.items || []);
+        // Transform the data to match frontend interface
+        const transformedItems = (data.data.items || []).map((item: any) => ({
+          ...item,
+          product: {
+            ...item.product,
+            imageUrl: item.product.images && item.product.images.length > 0 
+              ? item.product.images[0].imageUrl 
+              : undefined
+          }
+        }));
+        setCartItems(transformedItems);
       } else {
         console.error('Failed to fetch cart items:', data.error);
       }

@@ -46,7 +46,7 @@ After seeding, you can use these admin accounts to test the dashboard:
    npm run dev
    ```
 
-2. Navigate to `http://localhost:3001`
+2. Navigate to `http://localhost:3000`
 
 3. Click "Login" and use one of the admin credentials above
 

@@ -12,6 +12,10 @@ export default function CartPage() {
   const { cartItems, updateCartItem, removeFromCart, clearCart, loading } = useCart();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  
+  // Mock user ID for demo purposes (in real app, this would come from auth context)
+  const MOCK_USER_ID = 1;
   
   // Handle authentication state loading and redirect
   useEffect(() => {
@@ -69,12 +73,7 @@ export default function CartPage() {
       return;
     }
 
-    if (!user) {
-      alert('Please log in to proceed with checkout');
-      return;
-    }
-
-    setLoading(true);
+    setCheckoutLoading(true);
     
     try {
       const response = await fetch('http://localhost:5000/api/orders/checkout', {
@@ -83,7 +82,7 @@ export default function CartPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          buyerId: user.id,
+          buyerId: MOCK_USER_ID,
           shippingAddress: 'Digital delivery', // For digital products
           paymentMethod: 'ETH'
         }),
@@ -102,7 +101,7 @@ export default function CartPage() {
       console.error('Checkout error:', error);
       alert('An error occurred during checkout. Please try again.');
     } finally {
-      setLoading(false);
+      setCheckoutLoading(false);
     }
   };
 
@@ -234,9 +233,10 @@ export default function CartPage() {
                 {isWalletConnected ? (
                   <button 
                     onClick={handleCheckout}
-                    className="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                    disabled={checkoutLoading || cartItems.length === 0}
+                    className="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Proceed to Checkout
+                    {checkoutLoading ? 'Processing...' : 'Proceed to Checkout'}
                   </button>
                 ) : (
                   <button 

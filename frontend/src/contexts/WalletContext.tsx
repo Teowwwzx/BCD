@@ -140,7 +140,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
       }
 
-      const address = await web3ConnectWallet();
+      const { address } = await web3ConnectWallet();
       setIsWalletConnected(true);
       setWalletAddress(address);
       

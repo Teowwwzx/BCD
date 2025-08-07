@@ -1,279 +1,73 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const mockDb = require('../services/mockDatabase');
 const router = express.Router();
 
-// Debug route
-router.get('/debug', (req, res) => {
-  console.log('Products debug route hit!');
-  res.json({ message: 'Products router is working' });
-});
+const prisma = new PrismaClient();
 
-// Initialize Prisma with error handling
-let prisma;
-let useMockDb = false;
 
-try {
-  prisma = new PrismaClient();
-} catch (error) {
-  console.warn('Prisma initialization failed, using mock database:', error.message);
-  useMockDb = true;
-}
-
-// Create a new product listing
-router.post('/', async (req, res) => {
-  try {
-    const {
-      sellerId,
-      onChainListingId,
-      name,
-      description,
-      category,
-      price,
-      quantity,
-      location,
-      imageUrl
-    } = req.body;
-
-    // Validate required fields
-    if (!sellerId || !name || !price || !quantity) {
-      return res.status(400).json({
-        error: 'Seller ID, name, price, and quantity are required'
-      });
-    }
-
-    // Validate seller exists
-    const seller = await prisma.user.findUnique({
-      where: { id: parseInt(sellerId) }
-    });
-
-    if (!seller) {
-      return res.status(404).json({
-        error: 'Seller not found'
-      });
-    }
-
-    // Create product
-    const product = await prisma.product.create({
-      data: {
-        sellerId: parseInt(sellerId),
-        onChainListingId: onChainListingId ? parseInt(onChainListingId) : null,
-        name,
-        description,
-        category,
-        price: parseFloat(price),
-        quantity: parseInt(quantity),
-        location,
-        imageUrl
-      },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            username: true,
-            walletAddress: true,
-            userRole: true,
-            reputationScore: true
-          }
-        }
-      }
-    });
-
-    res.status(201).json({
-      message: 'Product created successfully',
-      product
-    });
-  } catch (error) {
-    console.error('Error creating product:', error);
-    res.status(500).json({
-      error: 'Internal server error'
-    });
-  }
-});
-
-// Get all products with filtering and pagination
 router.get('/', async (req, res) => {
-  console.log('GET /api/products called');
-  console.log('useMockDb flag:', useMockDb);
-  
-  // Test database connection if not using mock
-  if (!useMockDb) {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      console.log('Database connection successful');
-    } catch (dbError) {
-      console.warn('Database connection failed, switching to mock:', dbError.message);
-      useMockDb = true;
-    }
-  }
-  
   try {
     const {
       page = 1,
       limit = 12,
       category,
-      minPrice,
-      maxPrice,
-      location,
       search,
-      sellerId,
-      status = 'Available'
+      sortBy = 'createdAt-desc', // Default sort
     } = req.query;
 
-    let products, total;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
 
-    if (useMockDb) {
-      // Use mock database
-      const allProducts = await mockDb.getProducts();
-      
-      // Apply basic filtering for mock data
-      let filteredProducts = allProducts.filter(product => {
-        if (search) {
-          const searchLower = search.toLowerCase();
-          return product.name.toLowerCase().includes(searchLower) ||
-                 product.description.toLowerCase().includes(searchLower);
-        }
-        return true;
-      });
-
-      if (minPrice) {
-        filteredProducts = filteredProducts.filter(p => p.price >= parseFloat(minPrice));
-      }
-      if (maxPrice) {
-        filteredProducts = filteredProducts.filter(p => p.price <= parseFloat(maxPrice));
-      }
-
-      total = filteredProducts.length;
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      products = filteredProducts.slice(skip, skip + parseInt(limit));
-
-      // Add mock seller data
-      products = products.map(product => ({
-        ...product,
-        seller: {
-          id: product.sellerId,
-          username: 'mock_seller',
-          walletAddress: '0x1234567890abcdef',
-          userRole: 'Seller',
-          reputationScore: 4.5
-        }
-      }));
-    } else {
-      // Use Prisma
-      try {
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-        const take = parseInt(limit);
-
-        // Build where clause
-        const where = {
-          status: status || 'Available'
-        };
-
-        if (category) {
-          where.category = category;
-        }
-
-        if (minPrice || maxPrice) {
-          where.price = {};
-          if (minPrice) where.price.gte = parseFloat(minPrice);
-          if (maxPrice) where.price.lte = parseFloat(maxPrice);
-        }
-
-        if (location) {
-          where.location = {
-            contains: location,
-            mode: 'insensitive'
-          };
-        }
-
-        if (search) {
-          where.OR = [
-            {
-              name: {
-                contains: search,
-                mode: 'insensitive'
-              }
-            },
-            {
-              description: {
-                contains: search,
-                mode: 'insensitive'
-              }
-            }
-          ];
-        }
-
-        if (sellerId) {
-          where.sellerId = parseInt(sellerId);
-        }
-
-        [products, total] = await Promise.all([
-          prisma.product.findMany({
-            where,
-            skip,
-            take,
-            include: {
-              seller: {
-                select: {
-                  id: true,
-                  username: true,
-                  walletAddress: true,
-                  userRole: true,
-                  reputationScore: true
-                }
-              },
-              _count: {
-                select: {
-                  orders: true
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            }
-          }),
-          prisma.product.count({ where })
-        ]);
-      } catch (dbError) {
-        console.warn('Database connection failed, falling back to mock database');
-        useMockDb = true;
-        
-        // Fallback to mock database
-        const allProducts = await mockDb.getProducts();
-        let filteredProducts = allProducts;
-        
-        if (search) {
-          const searchLower = search.toLowerCase();
-          filteredProducts = filteredProducts.filter(product =>
-            product.name.toLowerCase().includes(searchLower) ||
-            product.description.toLowerCase().includes(searchLower)
-          );
-        }
-
-        if (minPrice) {
-          filteredProducts = filteredProducts.filter(p => p.price >= parseFloat(minPrice));
-        }
-        if (maxPrice) {
-          filteredProducts = filteredProducts.filter(p => p.price <= parseFloat(maxPrice));
-        }
-
-        total = filteredProducts.length;
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-        products = filteredProducts.slice(skip, skip + parseInt(limit));
-
-        // Add mock seller data
-        products = products.map(product => ({
-          ...product,
-          seller: {
-            id: product.sellerId,
-            username: 'mock_seller',
-            walletAddress: '0x1234567890abcdef',
-            userRole: 'Seller',
-            reputationScore: 4.5
-          }
-        }));
-      }
+    // 1. Build a dynamic 'where' clause for filtering
+    const where = {
+      status: 'published', // Only show published products
+    };
+    if (category && category !== 'all') {
+      where.category = { name: { equals: category, mode: 'insensitive' } };
     }
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { seller: { username: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    // 2. Build a dynamic 'orderBy' clause for sorting
+    let orderBy = {};
+    const [sortField, sortOrder] = sortBy.split('-');
+    if (sortField === 'price') {
+      orderBy = { price: sortOrder };
+    } else if (sortField === 'name') {
+      orderBy = { name: 'asc' }; // A-Z sorting
+    } else {
+      orderBy = { createdAt: 'desc' }; // Default: Newest first
+    }
+
+    // 3. Execute both queries concurrently for efficiency
+    const [products, total] = await prisma.$transaction([
+      prisma.product.findMany({
+        where,
+        skip,
+        take,
+        orderBy,
+        include: {
+          seller: {
+            select: { id: true, username: true },
+          },
+          images: {
+            orderBy: {
+              sortOrder: 'asc', // Assumes the primary image has the lowest sort order (e.g., 0)
+            },
+            take: 1, // Get only the first image in the sorted list
+          },
+          category: {
+            select: { name: true }
+          }
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
 
     res.json({
       success: true,
@@ -282,225 +76,163 @@ router.get('/', async (req, res) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / parseInt(limit))
-      }
+        pages: Math.ceil(total / parseInt(limit)),
+      },
     });
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json({
-      error: 'Internal server error'
-    });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-// Get product categories
-router.get('/categories/list', async (req, res) => {
+
+// GET /api/products/categories - Get all active product categories
+router.get('/categories', async (req, res) => {
   try {
-    const categories = await prisma.product.findMany({
-      select: {
-        category: true
-      },
-      where: {
-        category: {
-          not: null
-        }
-      },
-      distinct: ['category']
+    const categories = await prisma.category.findMany({
+      where: { is_active: true },
+      orderBy: { sort_order: 'asc' },
     });
-
-    const categoryList = categories
-      .map(p => p.category)
-      .filter(Boolean)
-      .sort();
-
-    res.json({ categories: categoryList });
+    res.json({ success: true, data: categories });
   } catch (error) {
     console.error('Error fetching categories:', error);
-    res.status(500).json({
-      error: 'Internal server error'
-    });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
+
 
 // Get product by ID
 router.get('/:id', async (req, res) => {
-  console.log('GET /api/products/:id called with id:', req.params.id);
   try {
     const { id } = req.params;
     const productId = parseInt(id);
 
     if (isNaN(productId)) {
-      return res.status(400).json({
-        error: 'Invalid product ID'
-      });
+      return res.status(400).json({ success: false, error: 'Invalid product ID' });
     }
 
-    let product;
-
-    if (useMockDb) {
-      // Use mock database
-      product = await mockDb.getProduct(productId);
-      if (product) {
-        product = {
-          ...product,
-          seller: {
-            id: product.sellerId,
-            username: 'mock_seller',
-            walletAddress: '0x1234567890abcdef',
-            userRole: 'Seller',
-            reputationScore: 4.5,
-            profileImageUrl: null
-          },
-          orders: [],
-          attachments: []
-        };
-      }
-    } else {
-      // Use Prisma
-      try {
-        product = await prisma.product.findUnique({
-          where: { id: productId },
-          include: {
-            seller: {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        seller: {
+          select: { id: true, username: true }
+        },
+        orderItems: {
+          select: {
+            id: true,
+            quantity: true,
+            order: {
               select: {
                 id: true,
-                username: true,
-                walletAddress: true,
-                userRole: true,
-                reputationScore: true,
-                profileImageUrl: true
-              }
-            },
-            orders: {
-              select: {
-                id: true,
-                buyerId: true,
-                quantityPurchased: true,
-                status: true,
+                order_status: true,
                 createdAt: true,
-                buyer: {
-                  select: {
-                    username: true,
-                    walletAddress: true
-                  }
+                users: { 
+                  select: { username: true }
                 }
-              },
-              orderBy: {
-                createdAt: 'desc'
               }
-            },
-            attachments: true
+            }
+          },
+          orderBy: {
+            order: { createdAt: 'desc' }
           }
-        });
-      } catch (dbError) {
-        console.warn('Database connection failed, falling back to mock database');
-        useMockDb = true;
-        product = await mockDb.getProduct(productId);
-        if (product) {
-          product = {
-            ...product,
-            seller: {
-              id: product.sellerId,
-              username: 'mock_seller',
-              walletAddress: '0x1234567890abcdef',
-              userRole: 'Seller',
-              reputationScore: 4.5,
-              profileImageUrl: null
-            },
-            orders: [],
-            attachments: []
-          };
-        }
+        },
+        // Also include other related data you might need
+        category: true,
+        images: true,
+        attributes: true
       }
-    }
+    });
 
     if (!product) {
-      return res.status(404).json({
-        error: 'Product not found'
-      });
+      return res.status(404).json({ success: false, error: 'Product not found' });
     }
 
-    res.json({ 
-      success: true,
-      data: product 
-    });
+    res.json({ success: true, data: product });
   } catch (error) {
-    console.error('Error fetching product:', error);
-    res.status(500).json({
-      error: 'Internal server error'
-    });
+    console.error(`Error fetching product with ID ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-// Update product
+
+// POST /api/products - Create a new product
+router.post('/', async (req, res) => {
+  try {
+    const { sellerId, categoryId, name, description, price, stockQuantity } = req.body;
+
+    if (!sellerId || !categoryId || !name || !price || stockQuantity === undefined) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+    
+    const newProduct = await prisma.product.create({
+      data: {
+        name,
+        description,
+        price: parseFloat(price),
+        quantity: parseInt(stockQuantity),
+        status: 'published',
+        seller: {
+          connect: { id: parseInt(sellerId) }
+        },
+        category: {
+          connect: { id: parseInt(categoryId) }
+        }
+      },
+    });
+    
+    res.status(201).json({ success: true, data: newProduct });
+  } catch (error) {
+    console.error('Error creating product:', error);
+    if (error.code === 'P2025') {
+        return res.status(404).json({ success: false, error: 'The specified Seller or Category does not exist.' });
+    }
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// PUT /api/products/:id - Update an existing product
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const productId = parseInt(id);
 
     if (isNaN(productId)) {
-      return res.status(400).json({
-        error: 'Invalid product ID'
-      });
+      return res.status(400).json({ success: false, error: 'Invalid product ID' });
     }
 
-    const {
-      name,
-      description,
-      category,
-      price,
-      quantity,
-      location,
-      imageUrl,
-      status
-    } = req.body;
+    // Use the exact field names from your database schema
+    const { name, description, category_id, price, stock_quantity, status } = req.body;
 
-    // Check if product exists
-    const existingProduct = await prisma.product.findUnique({
-      where: { id: productId }
-    });
-
-    if (!existingProduct) {
-      return res.status(404).json({
-        error: 'Product not found'
-      });
+    // Build the data object with only the fields that were provided
+    const dataToUpdate = {};
+    if (name !== undefined) dataToUpdate.name = name;
+    if (description !== undefined) dataToUpdate.description = description;
+    if (category_id !== undefined) dataToUpdate.category_id = parseInt(category_id);
+    if (price !== undefined) dataToUpdate.price = parseFloat(price);
+    if (stock_quantity !== undefined) dataToUpdate.stock_quantity = parseInt(stock_quantity);
+    if (status !== undefined) dataToUpdate.status = status;
+    
+    if (Object.keys(dataToUpdate).length === 0) {
+        return res.status(400).json({ success: false, error: 'No fields provided to update.' });
     }
 
-    // Update product
+    // Use prisma.product.update to apply the changes
     const updatedProduct = await prisma.product.update({
       where: { id: productId },
-      data: {
-        ...(name && { name }),
-        ...(description && { description }),
-        ...(category && { category }),
-        ...(price && { price: parseFloat(price) }),
-        ...(quantity && { quantity: parseInt(quantity) }),
-        ...(location && { location }),
-        ...(imageUrl && { imageUrl }),
-        ...(status && { status })
-      },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            username: true,
-            walletAddress: true,
-            userRole: true,
-            reputationScore: true
-          }
-        }
+      data: dataToUpdate,
+      include: { // Include related data in the response
+        seller: { select: { id: true, username: true } }
       }
     });
 
-    res.json({
-      message: 'Product updated successfully',
-      product: updatedProduct
-    });
+    res.json({ success: true, message: 'Product updated successfully', data: updatedProduct });
   } catch (error) {
-    console.error('Error updating product:', error);
-    res.status(500).json({
-      error: 'Internal server error'
-    });
+    console.error(`Error updating product ${req.params.id}:`, error);
+    // Handle case where the product to update is not found
+    if (error.code === 'P2025') {
+        return res.status(404).json({ success: false, error: 'Product not found.' });
+    }
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -511,50 +243,47 @@ router.delete('/:id', async (req, res) => {
     const productId = parseInt(id);
 
     if (isNaN(productId)) {
-      return res.status(400).json({
-        error: 'Invalid product ID'
-      });
+      return res.status(400).json({ error: 'Invalid product ID' });
     }
 
-    // Check if product exists
-    const existingProduct = await prisma.product.findUnique({
+    const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        orders: true
+        orderItems: {
+          include: {
+            order: true // Include the full order to check its status
+          }
+        }
       }
     });
 
-    if (!existingProduct) {
-      return res.status(404).json({
-        error: 'Product not found'
-      });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
     }
 
-    // Check if product has active orders
-    const activeOrders = existingProduct.orders.filter(
-      order => !['Completed', 'Cancelled'].includes(order.status)
+    // --- THIS IS THE FIX ---
+    // Make sure the property name 'order_status' matches your Prisma schema
+    // Prisma often converts snake_case to camelCase (e.g., orderStatus)
+    const activeOrders = product.orderItems.filter(
+      item => !['completed', 'cancelled', 'delivered', 'refunded'].includes(item.order.order_status)
     );
 
     if (activeOrders.length > 0) {
       return res.status(400).json({
-        error: 'Cannot delete product with active orders'
+        error: `Cannot delete product because it is part of ${activeOrders.length} active order(s).`
       });
     }
 
-    // Delete product
     await prisma.product.delete({
       where: { id: productId }
     });
 
-    res.json({
-      message: 'Product deleted successfully'
-    });
+    res.json({ message: 'Product deleted successfully' });
   } catch (error) {
-    console.error('Error deleting product:', error);
-    res.status(500).json({
-      error: 'Internal server error'
-    });
+    console.error(`Error deleting product with ID ${req.params.id}:`, error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 module.exports = router;

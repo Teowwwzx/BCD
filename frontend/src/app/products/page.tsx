@@ -10,8 +10,9 @@ interface Product {
   id: number;
   name: string;
   price: string;
-  image?: string;
+  images: { imageUrl: string }[];
   seller: string;
+  quantity: number;
   rating: number;
   description: string;
   category: string;
@@ -31,6 +32,7 @@ const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     category: 'all',
     priceRange: 'all',
@@ -39,91 +41,42 @@ const ProductsPage: React.FC = () => {
     searchQuery: ''
   });
 
-  // Mock product data
-  const mockProducts: Product[] = [
-    {
-      id: 1,
-      name: "Premium Wireless Headphones",
-      price: "0.15 ETH",
-      seller: "TechStore",
-      rating: 4.8,
-      description: "High-quality wireless headphones with noise cancellation and premium sound quality.",
-      category: "Electronics",
-      inStock: true
-    },
-    {
-      id: 2,
-      name: "Smart Fitness Watch",
-      price: "0.08 ETH",
-      seller: "FitGear",
-      rating: 4.6,
-      description: "Advanced fitness tracking with heart rate monitoring and GPS.",
-      category: "Electronics",
-      inStock: true
-    },
-    {
-      id: 3,
-      name: "Organic Coffee Beans",
-      price: "0.02 ETH",
-      seller: "CoffeeCo",
-      rating: 4.9,
-      description: "Premium organic coffee beans sourced from sustainable farms.",
-      category: "Food & Beverage",
-      inStock: true
-    },
-    {
-      id: 4,
-      name: "Handcrafted Leather Wallet",
-      price: "0.05 ETH",
-      seller: "ArtisanCraft",
-      rating: 4.7,
-      description: "Genuine leather wallet handcrafted by skilled artisans.",
-      category: "Fashion",
-      inStock: true
-    },
-    {
-      id: 5,
-      name: "Gaming Mechanical Keyboard",
-      price: "0.12 ETH",
-      seller: "GameTech",
-      rating: 4.5,
-      description: "RGB mechanical keyboard perfect for gaming and productivity.",
-      category: "Electronics",
-      inStock: false
-    },
-    {
-      id: 6,
-      name: "Vintage Vinyl Records Collection",
-      price: "0.25 ETH",
-      seller: "VinylVault",
-      rating: 4.9,
-      description: "Rare collection of vintage vinyl records from the 70s and 80s.",
-      category: "Collectibles",
-      inStock: true
-    },
-    {
-      id: 7,
-      name: "Sustainable Bamboo Phone Case",
-      price: "0.03 ETH",
-      seller: "EcoTech",
-      rating: 4.4,
-      description: "Eco-friendly phone case made from sustainable bamboo.",
-      category: "Accessories",
-      inStock: true
-    },
-    {
-      id: 8,
-      name: "Professional Camera Lens",
-      price: "0.45 ETH",
-      seller: "PhotoPro",
-      rating: 4.8,
-      description: "Professional grade camera lens for stunning photography.",
-      category: "Electronics",
-      inStock: true
+  // Fetch products from API
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('http://localhost:5000/api/products');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Transform API data to match our Product interface
+      const transformedProducts: Product[] = data.products.map((product: any) => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        images: product.images,
+        seller: product.seller,
+        rating: product.rating || 0,
+        description: product.description,
+        category: product.category || 'General',
+        inStock: product.quantity > 0
+      }));
+      
+      setProducts(transformedProducts);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError('Failed to load products. Please try again later.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const categories = ['all', 'Electronics', 'Fashion', 'Food & Beverage', 'Collectibles', 'Accessories'];
+  const categories = [...new Set(products.map(product => product.category))];
   const priceRanges = [
     { label: 'All Prices', value: 'all' },
     { label: 'Under 0.05 ETH', value: '0-0.05' },
@@ -141,11 +94,7 @@ const ProductsPage: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setLoading(false);
-    }, 1000);
+    fetchProducts();
   }, []);
 
   useEffect(() => {
@@ -156,15 +105,21 @@ const ProductsPage: React.FC = () => {
       filtered = filtered.filter(product => product.category === filters.category);
     }
 
+    // Apply price range filter (Corrected Logic)
     if (filters.priceRange !== 'all') {
-      const [min, max] = filters.priceRange.split('-').map(p => {
-        if (p === '0.30+') return [0.30, Infinity];
-        return parseFloat(p);
-      });
+      const priceFilter = filters.priceRange;
       
       filtered = filtered.filter(product => {
         const price = parseFloat(product.price.replace(' ETH', ''));
-        if (filters.priceRange === '0.30+') return price >= 0.30;
+        
+        // Handle the "Over X" case separately
+        if (priceFilter.endsWith('+')) {
+          const minPrice = parseFloat(priceFilter.replace('+', ''));
+          return price >= minPrice;
+        }
+        
+        // Handle the "Min-Max" range case
+        const [min, max] = priceFilter.split('-').map(parseFloat);
         return price >= min && price <= max;
       });
     }
@@ -383,13 +338,28 @@ const ProductsPage: React.FC = () => {
                   </div>
                 ))}
               </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Products</h3>
+                <p className="text-gray-600 mb-4">{error}</p>
+                <button
+                  onClick={fetchProducts}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
             ) : filteredProducts.length > 0 ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
-                    onAddToCart={handleAddToCart}
+                    // Use an arrow function to pass the productId correctly
+                    onAddToCart={() => handleAddToCart(product.id)}
                   />
                 ))}
               </div>

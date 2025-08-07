@@ -3,218 +3,105 @@
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useCart } from '../contexts/CartContext';
+import { useProducts, DisplayProduct } from '../hooks/useProducts';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
-import { 
-  getTotalListings, 
-  getListing, 
-  formatEther, 
-  purchaseProduct 
-} from '../lib/web3';
+import { getTotalListings, getListing, formatEther, purchaseProduct } from '../lib/web3';
 
-interface BlockchainProduct {
-  listingId: number;
-  seller: string;
-  name: string;
-  description: string;
-  category: string;
-  price: bigint;
-  quantity: number;
-  location: string;
-  imageUrl: string;
-  status: number;
-  createdAt: number;
-}
+// interface BlockchainProduct {
+//   listingId: number;
+//   seller: string;
+//   name: string;
+//   description: string;
+//   category: string;
+//   price: bigint;
+//   quantity: number;
+//   location: string;
+//   imageUrl: string;
+//   status: number;
+//   createdAt: number;
+// }
 
 export default function Home() {
+  const { allProducts, loading, error, refetchProducts } = useProducts();
+
   const { isLoggedIn, walletAddress } = useWallet();
-  const { addToCart, loading } = useCart();
+  const { addToCart, loading: cartLoading } = useCart();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
-  const [blockchainProducts, setBlockchainProducts] = useState<BlockchainProduct[]>([]);
-  const [loadingBlockchain, setLoadingBlockchain] = useState(false);
-  const [blockchainError, setBlockchainError] = useState<string | null>(null);
+  // const [blockchainProducts, setBlockchainProducts] = useState<BlockchainProduct[]>([]);
+  // const [loadingBlockchain, setLoadingBlockchain] = useState(false);
+  // const [blockchainError, setBlockchainError] = useState<string | null>(null);
   const [showBlockchainProducts, setShowBlockchainProducts] = useState(false);
+  const [categories, setCategories] = useState<{ label: string, value: string }[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<DisplayProduct[]>([]);
 
-  const featuredProducts = [
-    {
-      id: 1,
-      name: 'Organic Apples',
-      price: 4.99,
-      seller: 'Green Valley Farm',
-      rating: 4.8,
-      description: 'Fresh, crispy organic apples straight from our orchard.',
-      category: 'fruits',
-      image: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300&h=200&fit=crop',
-      inStock: true
-    },
-    {
-      id: 2,
-      name: 'Free Range Eggs',
-      price: 6.50,
-      seller: 'Happy Hens Farm',
-      rating: 4.9,
-      description: 'Farm-fresh eggs from free-range chickens.',
-      category: 'dairy',
-      image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=300&h=200&fit=crop',
-      inStock: true
-    },
-    {
-      id: 3,
-      name: 'Artisan Bread',
-      price: 5.25,
-      seller: 'Village Bakery',
-      rating: 4.7,
-      description: 'Handcrafted sourdough bread baked daily.',
-      category: 'bakery',
-      image: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=300&h=200&fit=crop',
-      inStock: true
-    },
-    {
-      id: 4,
-      name: 'Local Honey',
-      price: 12.99,
-      seller: 'Bee Happy Apiaries',
-      rating: 4.9,
-      description: 'Pure, raw honey harvested from local wildflowers.',
-      category: 'pantry',
-      image: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300&h=200&fit=crop',
-      inStock: true
-    }
-  ];
+  useEffect(() => {
+    // First, select the source of products (DB or Blockchain)
+    const sourceProducts = allProducts.filter(p => p.isBlockchain === showBlockchainProducts);
 
-  const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'fruits', label: 'Fruits' },
-    { value: 'vegetables', label: 'Vegetables' },
-    { value: 'dairy', label: 'Dairy' },
-    { value: 'meat', label: 'Meat' },
-    { value: 'bakery', label: 'Bakery' },
-    { value: 'pantry', label: 'Pantry' }
-  ];
-
-  // Load blockchain products
-  const loadBlockchainProducts = async () => {
-    setLoadingBlockchain(true);
-    setBlockchainError(null);
-    
-    try {
-      const totalListings = await getTotalListings();
-      const products: BlockchainProduct[] = [];
-      
-      for (let i = 0; i < Number(totalListings); i++) {
-        try {
-          const listing = await getListing(i);
-          // Only show active listings (status 0)
-          if (Number(listing[9]) === 0) {
-            products.push({
-              listingId: Number(listing[0]),
-              seller: listing[1],
-              name: listing[2],
-              description: listing[3],
-              category: listing[4],
-              price: listing[5],
-              quantity: Number(listing[6]),
-              location: listing[7],
-              imageUrl: listing[8],
-              status: Number(listing[9]),
-              createdAt: Number(listing[10])
-            });
-          }
-        } catch (err) {
-          console.error(`Error loading listing ${i}:`, err);
+    // Then, apply filters and sorting to the selected source
+    const filtered = sourceProducts
+      .filter(product => {
+        const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.seller.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = selectedCategory === 'all' || product.category.toLowerCase() === selectedCategory.toLowerCase();
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'price-low':
+            return a.price - b.price;
+          case 'price-high':
+            return b.price - a.price;
+          case 'rating':
+            return b.rating - a.rating;
+          case 'name':
+          default:
+            return a.name.localeCompare(b.name);
         }
-      }
-      
-      setBlockchainProducts(products);
-    } catch (err: any) {
-      console.error('Error loading blockchain products:', err);
-      setBlockchainError(err.message || 'Failed to load blockchain products');
-    } finally {
-      setLoadingBlockchain(false);
+      });
+
+    setFilteredProducts(filtered);
+
+    // Dynamically generate the category list from all available products
+    if (allProducts.length > 0) {
+      const uniqueCategories = [...new Set(allProducts.map(p => p.category))];
+      const categoryOptions = [
+        { label: 'All Categories', value: 'all' },
+        ...uniqueCategories.map(c => ({ label: c, value: c }))
+      ];
+      setCategories(categoryOptions);
     }
-  };
 
-  // Convert blockchain products to display format
-  const convertBlockchainProduct = (product: BlockchainProduct) => ({
-    id: `blockchain-${product.listingId}`,
-    name: product.name,
-    price: parseFloat(formatEther(product.price)),
-    seller: `${product.seller.slice(0, 6)}...${product.seller.slice(-4)}`,
-    rating: 4.5, // Default rating for blockchain products
-    description: product.description,
-    category: product.category.toLowerCase(),
-    image: product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&h=200&fit=crop',
-    inStock: product.quantity > 0,
-    isBlockchain: true,
-    blockchainData: product
-  });
+  }, [allProducts, searchTerm, selectedCategory, sortBy, showBlockchainProducts]);
 
-  // Get products to display
-  const getProductsToDisplay = () => {
-    if (showBlockchainProducts) {
-      return blockchainProducts.map(convertBlockchainProduct);
-    }
-    return featuredProducts;
-  };
-
-  // Filter and sort products
-  const filteredProducts = getProductsToDisplay()
-    .filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           product.seller.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'price-low':
-          return a.price - b.price;
-        case 'price-high':
-          return b.price - a.price;
-        case 'rating':
-          return b.rating - a.rating;
-        case 'name':
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
-
-  const handleAddToCart = (product: any) => {
-    addToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      seller: product.seller,
-      image: product.image,
-      quantity: 1
-    });
-  };
-
-  const handleBlockchainPurchase = async (product: any) => {
-    if (!walletAddress || !product.isBlockchain) return;
-    
+  const handleAddToCart = async (product: DisplayProduct) => {
     try {
-      const blockchainData = product.blockchainData;
-      const totalPrice = formatEther(blockchainData.price);
-      
-      await purchaseProduct(blockchainData.listingId, 1, totalPrice);
-      
-      // Reload blockchain products after purchase
-      await loadBlockchainProducts();
-      
+      const productId = parseInt(product.id.replace('db-', ''));
+      await addToCart(productId, 1);
+      alert(`${product.name} added to cart!`);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert('Failed to add item to cart. Please try again.');
+    }
+  };
+
+  const handleBlockchainPurchase = async (product: DisplayProduct) => {
+    if (!walletAddress || !product.blockchainData) return;
+    try {
+      // We need to format the price back to a string for the purchase function
+      const totalPriceString = product.price.toString();
+      await purchaseProduct(product.blockchainData.listingId, 1, totalPriceString);
+      await refetchProducts(); // Use the refetch function from the hook
     } catch (err: any) {
       console.error('Purchase error:', err);
       alert(`Purchase failed: ${err.message}`);
     }
   };
-
-  // Load blockchain products on component mount
-  useEffect(() => {
-    loadBlockchainProducts();
-  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -231,7 +118,7 @@ export default function Home() {
               Connect directly with local farmers and producers. Fresh, sustainable, and transparent.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
+              <button
                 onClick={() => setShowBlockchainProducts(true)}
                 className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
               >
@@ -253,51 +140,37 @@ export default function Home() {
                 <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                   <button
                     onClick={() => setShowBlockchainProducts(false)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      !showBlockchainProducts
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!showBlockchainProducts
                         ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    }`}
+                      }`}
                   >
                     Demo Products
                   </button>
                   <button
                     onClick={() => {
                       setShowBlockchainProducts(true);
-                      loadBlockchainProducts();
+                      refetchProducts(); // Use the refetch function from the hook
                     }}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      showBlockchainProducts
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${showBlockchainProducts
                         ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    }`}
+                      }`}
                   >
                     Blockchain Products
                   </button>
                 </div>
               </div>
-              
-              {showBlockchainProducts && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {blockchainProducts.length} blockchain listings
-                  </span>
-                  <button
-                    onClick={loadBlockchainProducts}
-                    disabled={loadingBlockchain}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium disabled:opacity-50"
-                  >
-                    {loadingBlockchain ? 'Loading...' : 'Refresh'}
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {blockchainError && (
-              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-800 dark:text-red-200">{blockchainError}</p>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={refetchProducts} // Use the refetch function
+                  disabled={loading}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {loading ? 'Loading...' : 'Refresh All'}
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </section>
 
@@ -319,7 +192,7 @@ export default function Home() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              
+
               {/* Category Filter */}
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -338,7 +211,7 @@ export default function Home() {
                   ))}
                 </select>
               </div>
-              
+
               {/* Sort */}
               <div>
                 <label htmlFor="sort" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -370,18 +243,32 @@ export default function Home() {
               {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
             </p>
           </div>
-          
-          {loadingBlockchain && showBlockchainProducts ? (
+
+          {loading ? (
             <div className="text-center py-12">
               <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-gray-500 dark:text-gray-400 mt-4">Loading blockchain products...</p>
+              <p className="text-gray-500 dark:text-gray-400 mt-4">Loading products...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="text-red-500 mb-4">
+                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Error Loading Products</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+              <button
+                onClick={refetchProducts}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 dark:text-gray-400 text-lg">
-                {showBlockchainProducts 
-                  ? 'No blockchain products found. Try creating some listings in the admin panel!' 
-                  : 'No products found matching your criteria.'}
+                No products found matching your criteria.
               </p>
             </div>
           ) : (
@@ -391,13 +278,13 @@ export default function Home() {
                   key={product.id}
                   product={product}
                   onAddToCart={() => {
-                    if (product.isBlockchain && walletAddress) {
+                    if (product.isBlockchain) {
                       handleBlockchainPurchase(product);
                     } else {
                       handleAddToCart(product);
                     }
                   }}
-                  loading={loading}
+                  loading={cartLoading}
                   isBlockchain={product.isBlockchain}
                   requiresWallet={product.isBlockchain && !walletAddress}
                 />
@@ -406,56 +293,104 @@ export default function Home() {
           )}
         </section>
 
-        {/* Features Section */}
+        {/* Features Section (No changes needed here) */}
         <section className="bg-white dark:bg-gray-800 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
             <div className="text-center mb-12">
+
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+
                 Why Choose Our Marketplace?
+
               </h2>
+
               <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+
                 Experience the future of food commerce with blockchain-powered transparency and direct farmer connections.
+
               </p>
+
             </div>
-            
+
+
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
               <div className="text-center">
+
                 <div className="bg-green-100 dark:bg-green-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+
                   <span className="text-2xl">🌱</span>
+
                 </div>
+
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+
                   Fresh & Local
+
                 </h3>
+
                 <p className="text-gray-600 dark:text-gray-400">
+
                   Direct from local farms to your table, ensuring maximum freshness and supporting your community.
+
                 </p>
+
               </div>
-              
+
+
+
               <div className="text-center">
+
                 <div className="bg-blue-100 dark:bg-blue-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+
                   <span className="text-2xl">🔗</span>
+
                 </div>
+
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+
                   Blockchain Verified
+
                 </h3>
+
                 <p className="text-gray-600 dark:text-gray-400">
+
                   Complete transparency with blockchain technology tracking every step from farm to your door.
+
                 </p>
+
               </div>
-              
+
+
+
               <div className="text-center">
+
                 <div className="bg-purple-100 dark:bg-purple-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+
                   <span className="text-2xl">🤝</span>
+
                 </div>
+
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+
                   Fair Trade
+
                 </h3>
+
                 <p className="text-gray-600 dark:text-gray-400">
+
                   Direct payments to farmers ensure fair compensation and sustainable farming practices.
+
                 </p>
+
               </div>
+
             </div>
+
           </div>
+
         </section>
       </main>
 

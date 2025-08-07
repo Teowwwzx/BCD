@@ -471,13 +471,279 @@ describe("DSCMMarketplace", function () {
     });
   });
 
+  describe("Dispute Management", function () {
+    it("Should allow buyer to raise dispute", async function () {
+      const { marketplace, seller, buyer, transporter } = await loadFixture(deployMarketplaceFixture);
+      
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      await marketplace.connect(seller).assignTransporter(1, transporter.address);
+      
+      await expect(
+        marketplace.connect(buyer).raiseDispute(1)
+      ).to.emit(marketplace, "DisputeRaised")
+        .withArgs(1, buyer.address);
+      
+      const order = await marketplace.getOrder(1);
+       expect(order.status).to.equal(5); // Disputed
+    });
+
+    it("Should allow seller to raise dispute", async function () {
+      const { marketplace, seller, buyer } = await loadFixture(deployMarketplaceFixture);
+      
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      
+      await marketplace.connect(seller).raiseDispute(1);
+      
+      const order = await marketplace.getOrder(1);
+       expect(order.status).to.equal(5); // Disputed
+    });
+
+    it("Should not allow dispute on completed orders", async function () {
+      const { marketplace, seller, buyer, transporter } = await loadFixture(deployMarketplaceFixture);
+      
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      await marketplace.connect(seller).assignTransporter(1, transporter.address);
+      await marketplace.connect(transporter).updateOrderStatus(1, 3); // Delivered
+      await marketplace.connect(buyer).confirmDelivery(1);
+      await marketplace.connect(seller).confirmCompletion(1);
+      
+      await expect(
+        marketplace.connect(buyer).raiseDispute(1)
+      ).to.be.revertedWith("Cannot dispute this order");
+    });
+
+    it("Should not allow unauthorized users to raise dispute", async function () {
+      const { marketplace, seller, buyer, other } = await loadFixture(deployMarketplaceFixture);
+      
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      
+      await expect(
+        marketplace.connect(other).raiseDispute(1)
+      ).to.be.revertedWith("Only buyer or seller can raise dispute");
+    });
+  });
+
+  describe("Admin Resolution", function () {
+    it("Should allow owner to resolve dispute in favor of buyer", async function () {
+       const { marketplace, seller, buyer, owner } = await loadFixture(deployMarketplaceFixture);
+       
+       const price = ethers.parseEther("1.0");
+       await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+       await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+       await marketplace.connect(buyer).raiseDispute(1);
+       
+       const initialBuyerBalance = await ethers.provider.getBalance(buyer.address);
+       
+       await marketplace.connect(owner).resolveDispute(1, true); // Favor buyer
+       
+       const finalBuyerBalance = await ethers.provider.getBalance(buyer.address);
+       const order = await marketplace.getOrder(1);
+       
+       expect(order.status).to.equal(6); // Cancelled
+       expect(finalBuyerBalance).to.be.gt(initialBuyerBalance); // Buyer got refund
+     });
+
+    it("Should allow owner to resolve dispute in favor of seller", async function () {
+       const { marketplace, seller, buyer, owner } = await loadFixture(deployMarketplaceFixture);
+       
+       const price = ethers.parseEther("1.0");
+       await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+       await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+       await marketplace.connect(buyer).raiseDispute(1);
+       
+       const initialSellerBalance = await ethers.provider.getBalance(seller.address);
+       
+       await marketplace.connect(owner).resolveDispute(1, false); // Favor seller
+       
+       const finalSellerBalance = await ethers.provider.getBalance(seller.address);
+       const order = await marketplace.getOrder(1);
+       const sellerReputation = await marketplace.getUserReputation(seller.address);
+       
+       expect(order.status).to.equal(4); // Completed
+       expect(finalSellerBalance).to.be.gt(initialSellerBalance); // Seller got payment
+       expect(sellerReputation).to.equal(1); // Reputation increased
+     });
+
+    it("Should only allow owner to resolve disputes", async function () {
+       const { marketplace, seller, buyer, other } = await loadFixture(deployMarketplaceFixture);
+       
+       const price = ethers.parseEther("1.0");
+       await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+       await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+       await marketplace.connect(buyer).raiseDispute(1);
+       
+       await expect(
+         marketplace.connect(other).resolveDispute(1, true)
+       ).to.be.revertedWithCustomError(marketplace, "OwnableUnauthorizedAccount");
+     });
+  });
+
+  describe("Additional Edge Cases", function () {
+    it("Should handle order status updates correctly", async function () {
+      const { marketplace, seller, buyer, transporter } = await loadFixture(deployMarketplaceFixture);
+      
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      await marketplace.connect(seller).assignTransporter(1, transporter.address);
+      
+      await expect(
+        marketplace.connect(transporter).updateOrderStatus(1, 3) // Delivered
+      ).to.emit(marketplace, "OrderStatusUpdated")
+        .withArgs(1, 3);
+      
+      const order = await marketplace.getOrder(1);
+      expect(order.status).to.equal(3); // Delivered
+    });
+
+    it("Should not allow invalid order status updates", async function () {
+      const { marketplace, seller, buyer, other } = await loadFixture(deployMarketplaceFixture);
+      
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      
+      await expect(
+        marketplace.connect(other).updateOrderStatus(1, 3) // Unauthorized user
+      ).to.be.revertedWith("Not authorized to update order");
+    });
+
+    it("Should handle emergency withdrawal", async function () {
+      const { marketplace, seller, buyer, owner } = await loadFixture(deployMarketplaceFixture);
+      
+      // Create a purchase to get ETH into the contract
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      
+      const initialOwnerBalance = await ethers.provider.getBalance(owner.address);
+      const contractBalance = await ethers.provider.getBalance(await marketplace.getAddress());
+      
+      const tx = await marketplace.connect(owner).emergencyWithdraw();
+      const receipt = await tx.wait();
+      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+      
+      const finalOwnerBalance = await ethers.provider.getBalance(owner.address);
+      
+      expect(finalOwnerBalance).to.equal(initialOwnerBalance + contractBalance - gasUsed);
+    });
+
+    it("Should get user reputation correctly", async function () {
+      const { marketplace, seller, buyer, transporter } = await loadFixture(deployMarketplaceFixture);
+      
+      const price = ethers.parseEther("1.0");
+      await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+      await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+      await marketplace.connect(seller).assignTransporter(1, transporter.address);
+      await marketplace.connect(transporter).updateOrderStatus(1, 3); // Delivered
+      await marketplace.connect(buyer).confirmDelivery(1);
+      await marketplace.connect(seller).confirmCompletion(1);
+      
+      const sellerReputation = await marketplace.getUserReputation(seller.address);
+      const buyerReputation = await marketplace.getUserReputation(buyer.address);
+      
+      expect(sellerReputation).to.equal(1);
+      expect(buyerReputation).to.equal(1);
+    });
+
+    it("Should handle admin canceling listings", async function () {
+       const { marketplace, seller, admin } = await loadFixture(deployMarketplaceFixture);
+       
+       const price = ethers.parseEther("1.0");
+       await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+       
+       await marketplace.connect(admin).cancelListing(1);
+       
+       const listing = await marketplace.getListing(1);
+       expect(listing.status).to.equal(2); // Cancelled
+     });
+
+     it("Should handle both buyer and seller confirmation for payment release", async function () {
+       const { marketplace, seller, buyer, transporter } = await loadFixture(deployMarketplaceFixture);
+       
+       const price = ethers.parseEther("1.0");
+       await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+       await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+       await marketplace.connect(seller).assignTransporter(1, transporter.address);
+       await marketplace.connect(transporter).updateOrderStatus(1, 3); // Delivered
+       
+       const initialSellerBalance = await ethers.provider.getBalance(seller.address);
+       
+       // Both buyer and seller confirm
+       await marketplace.connect(buyer).confirmDelivery(1);
+       await marketplace.connect(seller).confirmCompletion(1);
+       
+       const finalSellerBalance = await ethers.provider.getBalance(seller.address);
+       const order = await marketplace.getOrder(1);
+       const sellerReputation = await marketplace.getUserReputation(seller.address);
+       
+       expect(order.status).to.equal(4); // Completed
+       expect(finalSellerBalance).to.be.gt(initialSellerBalance); // Payment released
+       expect(sellerReputation).to.equal(1); // Reputation increased
+     });
+
+     it("Should get total orders count", async function () {
+       const { marketplace, seller, buyer } = await loadFixture(deployMarketplaceFixture);
+       
+       const price = ethers.parseEther("1.0");
+       await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+       await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+       
+       const totalOrders = await marketplace.getTotalOrders();
+       expect(totalOrders).to.equal(1);
+     });
+
+     it("Should support interface correctly", async function () {
+        const { marketplace } = await loadFixture(deployMarketplaceFixture);
+        
+        // Test AccessControl interface
+        const accessControlInterface = "0x7965db0b";
+        const supportsAccessControl = await marketplace.supportsInterface(accessControlInterface);
+        expect(supportsAccessControl).to.be.true;
+      });
+
+      it("Should release payment when buyer confirms after seller", async function () {
+        const { marketplace, seller, buyer, transporter } = await loadFixture(deployMarketplaceFixture);
+        
+        const price = ethers.parseEther("1.0");
+        await marketplace.connect(seller).createListing("Product", "Description", "Category", price, 1, "Location", "image.jpg");
+        await marketplace.connect(buyer).purchaseProduct(1, 1, { value: price });
+        await marketplace.connect(seller).assignTransporter(1, transporter.address);
+        await marketplace.connect(transporter).updateOrderStatus(1, 3); // Delivered
+        
+        const initialSellerBalance = await ethers.provider.getBalance(seller.address);
+        
+        // Seller confirms completion first
+        await marketplace.connect(seller).confirmCompletion(1);
+        
+        // Then buyer confirms delivery - this should trigger payment release
+        await marketplace.connect(buyer).confirmDelivery(1);
+        
+        const finalSellerBalance = await ethers.provider.getBalance(seller.address);
+        const order = await marketplace.getOrder(1);
+        const sellerReputation = await marketplace.getUserReputation(seller.address);
+        
+        expect(order.status).to.equal(4); // Completed
+        expect(finalSellerBalance).to.be.gt(initialSellerBalance); // Payment released
+        expect(sellerReputation).to.equal(1); // Reputation increased
+      });
+  });
+
   describe("Access Control", function () {
     it("Should restrict admin functions to admin role", async function () {
       const { marketplace, buyer } = await loadFixture(deployMarketplaceFixture);
       
       await expect(
         marketplace.connect(buyer).pauseContract()
-      ).to.be.revertedWith("AccessControl: account");
+      ).to.be.revertedWithCustomError(marketplace, "AccessControlUnauthorizedAccount");
     });
 
     it("Should restrict owner functions to owner", async function () {
@@ -485,7 +751,7 @@ describe("DSCMMarketplace", function () {
       
       await expect(
         marketplace.connect(buyer).emergencyWithdraw()
-      ).to.be.revertedWith("Ownable: caller is not the owner");
+      ).to.be.revertedWithCustomError(marketplace, "OwnableUnauthorizedAccount");
     });
   });
 });

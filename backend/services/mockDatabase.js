@@ -154,7 +154,7 @@ class MockDatabase {
     );
 
     if (itemIndex === -1) {
-      throw new Error('Cart item not found');
+      return false;
     }
 
     this.cartItems.splice(itemIndex, 1);
@@ -194,6 +194,54 @@ class MockDatabase {
   // Get all products
   async getProducts() {
     return this.products;
+  }
+
+  // Create a new product
+  async createProduct(productData) {
+    const newProduct = {
+      id: Math.max(...this.products.map(p => p.id), 0) + 1,
+      ...productData,
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      seller: {
+        id: productData.sellerId,
+        username: 'test_seller',
+        walletAddress: '0x1234567890abcdef',
+        userRole: 'Seller',
+        reputationScore: 4.5
+      }
+    };
+    
+    this.products.push(newProduct);
+    return newProduct;
+  }
+
+  // Update a product
+  async updateProduct(productId, updateData) {
+    const productIndex = this.products.findIndex(p => p.id === productId);
+    if (productIndex === -1) {
+      throw new Error('Product not found');
+    }
+
+    this.products[productIndex] = {
+      ...this.products[productIndex],
+      ...updateData,
+      updatedAt: new Date()
+    };
+
+    return this.products[productIndex];
+  }
+
+  // Delete a product
+  async deleteProduct(productId) {
+    const productIndex = this.products.findIndex(p => p.id === productId);
+    if (productIndex === -1) {
+      throw new Error('Product not found');
+    }
+
+    this.products.splice(productIndex, 1);
+    return true;
   }
 }
 

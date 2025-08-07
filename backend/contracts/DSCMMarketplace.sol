@@ -359,6 +359,10 @@ contract DSCMMarketplace is ReentrancyGuard, Ownable, Pausable, AccessControl {
     function getUserOrders(address _user) external view returns (uint256[] memory) {
         return userOrders[_user];
     }
+
+    function listingsCount() external view returns (uint256) {
+        return _listingIds;
+    }
     
     // Get total listings count
     function getTotalListings() external view returns (uint256) {

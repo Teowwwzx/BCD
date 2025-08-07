@@ -93,7 +93,7 @@
   - [x] Transaction handling and error management
   - [x] Real-time blockchain data loading
 - [x] **Development Environment**:
-  - [x] All servers running (Frontend: 3001, Backend: 5000, Hardhat: 8545)
+  - [x] All servers running (Frontend: 3000, Backend: 5000, Hardhat: 8545)
   - [x] Smart contract deployed and accessible
   - [x] Frontend-blockchain communication working
 

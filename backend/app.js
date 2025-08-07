@@ -23,7 +23,7 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -86,6 +86,7 @@ const ordersRoutes = require('./routes/orders');
 const shipmentsRoutes = require('./routes/shipments');
 const reviewsRoutes = require('./routes/reviews');
 const cartRoutes = require('./routes/cart');
+const categoriesRoutes = require('./routes/categories');
 
 console.log('Loading users routes...');
 app.use('/api/users', usersRoutes);
@@ -97,6 +98,14 @@ try {
   console.log('✓ Products routes loaded');
 } catch (error) {
   console.error('Error loading products routes:', error);
+}
+
+console.log('Loading categories routes...');
+try {
+  app.use('/api/categories', categoriesRoutes);
+  console.log('✓ Categories routes loaded');
+} catch (error) {
+  console.error('Error loading categories routes:', error);
 }
 
 console.log('Loading orders routes...');
@@ -145,6 +154,10 @@ app.use((err, req, res, next) => {
   console.error('Global error handler caught:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
+
+app.set('json replacer', (key, value) =>
+  typeof value === 'bigint' ? value.toString() : value
+);
 
 // 404 handler will be handled by Express default
 
