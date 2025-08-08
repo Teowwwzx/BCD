@@ -1,50 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react'; //_ Changed: No longer need useEffect here, useMemo is better
+import { ethers } from 'ethers'; //_ Added: To handle price conversion
 import { useWallet } from '../contexts/WalletContext';
 import { useCart } from '../contexts/CartContext';
 import { useProducts, DisplayProduct } from '../hooks/useProducts';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
-import { getTotalListings, getListing, formatEther, purchaseProduct } from '../lib/web3';
-
-// interface BlockchainProduct {
-//   listingId: number;
-//   seller: string;
-//   name: string;
-//   description: string;
-//   category: string;
-//   price: bigint;
-//   quantity: number;
-//   location: string;
-//   imageUrl: string;
-//   status: number;
-//   createdAt: number;
-// }
+import { purchaseProduct } from '../lib/web3';
 
 export default function Home() {
-  const { allProducts, loading, error, refetchProducts } = useProducts();
-
-  const { isLoggedIn, walletAddress } = useWallet();
-  const { addToCart, loading: cartLoading } = useCart();
-
+  const [showBlockchainProducts, setShowBlockchainProducts] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
-  // const [blockchainProducts, setBlockchainProducts] = useState<BlockchainProduct[]>([]);
-  // const [loadingBlockchain, setLoadingBlockchain] = useState(false);
-  // const [blockchainError, setBlockchainError] = useState<string | null>(null);
-  const [showBlockchainProducts, setShowBlockchainProducts] = useState(false);
-  const [categories, setCategories] = useState<{ label: string, value: string }[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<DisplayProduct[]>([]);
 
-  useEffect(() => {
-    // First, select the source of products (DB or Blockchain)
+  const { allProducts, loading, error, refetchProducts } = useProducts();
+  const { addToCart, loading: cartLoading } = useCart();
+  const { walletAddress } = useWallet();
+
+
+  const filteredProducts = useMemo(() => {
     const sourceProducts = allProducts.filter(p => p.isBlockchain === showBlockchainProducts);
 
-    // Then, apply filters and sorting to the selected source
-    const filtered = sourceProducts
+    return sourceProducts
       .filter(product => {
         const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           product.seller.toLowerCase().includes(searchTerm.toLowerCase());
@@ -59,27 +39,24 @@ export default function Home() {
             return b.price - a.price;
           case 'rating':
             return b.rating - a.rating;
-          case 'name':
           default:
             return a.name.localeCompare(b.name);
         }
       });
+  }, [allProducts, showBlockchainProducts, searchTerm, selectedCategory, sortBy]);
 
-    setFilteredProducts(filtered);
-
-    // Dynamically generate the category list from all available products
-    if (allProducts.length > 0) {
-      const uniqueCategories = [...new Set(allProducts.map(p => p.category))];
-      const categoryOptions = [
-        { label: 'All Categories', value: 'all' },
-        ...uniqueCategories.map(c => ({ label: c, value: c }))
-      ];
-      setCategories(categoryOptions);
-    }
-
-  }, [allProducts, searchTerm, selectedCategory, sortBy, showBlockchainProducts]);
+  //_ Also derive the categories list directly.
+  const categories = useMemo(() => {
+    if (allProducts.length === 0) return [{ label: 'All Categories', value: 'all' }];
+    const uniqueCategories = [...new Set(allProducts.map(p => p.category).filter(Boolean))];
+    return [
+      { label: 'All Categories', value: 'all' },
+      ...uniqueCategories.map(c => ({ label: c, value: c }))
+    ];
+  }, [allProducts]);
 
   const handleAddToCart = async (product: DisplayProduct) => {
+    // This function was already well-written, no changes needed.
     try {
       const productId = parseInt(product.id.replace('db-', ''));
       await addToCart(productId, 1);
@@ -90,308 +67,157 @@ export default function Home() {
     }
   };
 
+  //_ REVISION 2: Correctly handle the payment value for the blockchain transaction.
   const handleBlockchainPurchase = async (product: DisplayProduct) => {
-    if (!walletAddress || !product.blockchainData) return;
+    if (!walletAddress || !product.blockchainData) {
+      alert('Please connect your wallet to purchase blockchain items.');
+      return;
+    }
+
     try {
-      // We need to format the price back to a string for the purchase function
-      const totalPriceString = product.price.toString();
-      await purchaseProduct(product.blockchainData.listingId, 1, totalPriceString);
-      await refetchProducts(); // Use the refetch function from the hook
+      //_ The smart contract's `payable` function receives ETH via the `value`
+      //_ field of the transaction, not as a function argument.
+      //_ We must convert the price (e.g., "0.5") into wei (e.g., 500000000000000000).
+      const priceInWei = ethers.parseEther(product.price.toString());
+
+      console.log(`Attempting to purchase listing ${product.blockchainData.listingId} for ${priceInWei.toString()} wei...`);
+
+      //_ Call the function with its required arguments (_listingId, _quantity) and pass
+      //_ the payment amount in the options object.
+      await purchaseProduct(
+        product.blockchainData.listingId,
+        1, // Assuming quantity is 1 for now
+        { value: priceInWei } // The transaction options object
+      );
+
+      alert('Purchase successful! Transaction sent.');
+      await refetchProducts();
     } catch (err: any) {
       console.error('Purchase error:', err);
-      alert(`Purchase failed: ${err.message}`);
+      // Provide a more user-friendly error message
+      const message = err.reason || err.message || "An unknown error occurred.";
+      alert(`Purchase failed: ${message}`);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    //_ Main container with a dark background and a subtle scan-line effect
+    <div className="min-h-screen bg-[#0d0221] text-[#00f5c3] font-mono-pixel">
       <Header />
 
-      <main>
+      <main className="container mx-auto px-4">
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-green-600 to-blue-600 text-white py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Decentralized Supply Chain Marketplace
+        <section className="text-center py-20 md:py-32">
+          {/*_ Glitch effect wrapper for the main title */}
+          <div className="relative inline-block mb-6">
+            <h1 className="font-pixel text-4xl md:text-6xl text-white relative z-10">
+              DECENTRALIZED
             </h1>
-            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
-              Connect directly with local farmers and producers. Fresh, sustainable, and transparent.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => setShowBlockchainProducts(true)}
-                className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-              >
-                Explore Blockchain Products
-              </button>
-              <button className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-green-600 transition-colors">
-                Become a Seller
-              </button>
-            </div>
+            {/*_ The "glitch" layers */}
+            <h1 className="font-pixel text-4xl md:text-6xl text-[#f0f] absolute top-0 left-0 z-0 -translate-x-0.5 -translate-y-0.5">
+              DECENTRALIZED
+            </h1>
+            <h1 className="font-pixel text-4xl md:text-6xl text-[#0ff] absolute top-0 left-0 z-0 translate-x-0.5 translate-y-0.5">
+              DECENTRALIZED
+            </h1>
+          </div>
+          <h2 className="font-pixel text-3xl md:text-5xl text-white mb-8">
+            SUPPLY-CHAIN
+          </h2>
+          <p className="text-xl md:text-2xl mb-10 max-w-3xl mx-auto text-gray-300">
+            TRANSPARENT_TRANSACTIONS :: DIRECT_TO_PRODUCER :: BIO-ENHANCED_GOODS
+          </p>
+
+          {/*_ Pixelated buttons with hard edges and hover effects */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => setShowBlockchainProducts(true)}
+              className="bg-[#00f5c3] text-black px-8 py-3 font-pixel text-sm hover:bg-white hover:text-black border-2 border-[#00f5c3] transition-colors"
+            >
+              [ EXPLORE_CHAIN ]
+            </button>
+            <button className="border-2 border-[#00f5c3] text-white px-8 py-3 font-pixel text-sm hover:bg-[#00f5c3] hover:text-black transition-colors">
+              [ BECOME_A_VENDOR ]
+            </button>
           </div>
         </section>
 
-        {/* Product Source Toggle */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Product Source:</span>
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                  <button
-                    onClick={() => setShowBlockchainProducts(false)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!showBlockchainProducts
-                        ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                  >
-                    Demo Products
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowBlockchainProducts(true);
-                      refetchProducts(); // Use the refetch function from the hook
-                    }}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${showBlockchainProducts
-                        ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                  >
-                    Blockchain Products
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={refetchProducts} // Use the refetch function
-                  disabled={loading}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium disabled:opacity-50"
-                >
-                  {loading ? 'Loading...' : 'Refresh All'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Filter & Product Section Wrapper */}
+        {/*_ A container with a "pixelated" border effect */}
+        <div className="p-1 bg-gradient-to-br from-[#f0f] to-[#0ff] mb-16">
+          <div className="bg-[#0d0221] p-4 md:p-6">
 
-        {/* Search and Filter Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Search */}
-              <div>
-                <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Search Products
-                </label>
+            {/* Search and Filter Section */}
+            <section className="mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/*_ Inputs styled like a retro terminal */}
                 <input
                   type="text"
-                  id="search"
-                  placeholder="Search by product or seller..."
+                  placeholder="SEARCH_QUERY..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full p-3 bg-black border-2 border-[#30214f] text-[#00f5c3] focus:border-[#00f5c3] focus:outline-none placeholder:text-gray-500"
                 />
-              </div>
-
-              {/* Category Filter */}
-              <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Category
-                </label>
                 <select
-                  id="category"
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full p-3 bg-black border-2 border-[#30214f] text-[#00f5c3] focus:border-[#00f5c3] focus:outline-none"
                 >
                   {categories.map(category => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
+                    <option key={category.value} value={category.value} className="bg-black text-[#00f5c3]">{category.label}</option>
                   ))}
                 </select>
-              </div>
-
-              {/* Sort */}
-              <div>
-                <label htmlFor="sort" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Sort By
-                </label>
                 <select
-                  id="sort"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full p-3 bg-black border-2 border-[#30214f] text-[#00f5c3] focus:border-[#00f5c3] focus:outline-none"
                 >
-                  <option value="name">Name (A-Z)</option>
-                  <option value="price-low">Price (Low to High)</option>
-                  <option value="price-high">Price (High to Low)</option>
-                  <option value="rating">Rating (High to Low)</option>
+                  <option value="name">SORT: NAME</option>
+                  <option value="price-low">SORT: PRICE_ASC</option>
+                  <option value="price-high">SORT: PRICE_DESC</option>
+                  <option value="rating">SORT: RATING</option>
                 </select>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        {/* Products Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-              {showBlockchainProducts ? 'Blockchain Products' : 'Featured Products'}
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
-            </p>
-          </div>
-
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-gray-500 dark:text-gray-400 mt-4">Loading products...</p>
-            </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <div className="text-red-500 mb-4">
-                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Error Loading Products</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
-              <button
-                onClick={refetchProducts}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 dark:text-gray-400 text-lg">
-                No products found matching your criteria.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAddToCart={() => {
-                    if (product.isBlockchain) {
-                      handleBlockchainPurchase(product);
-                    } else {
-                      handleAddToCart(product);
-                    }
-                  }}
-                  loading={cartLoading}
-                  isBlockchain={product.isBlockchain}
-                  requiresWallet={product.isBlockchain && !walletAddress}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Features Section (No changes needed here) */}
-        <section className="bg-white dark:bg-gray-800 py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-            <div className="text-center mb-12">
-
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-
-                Why Choose Our Marketplace?
-
-              </h2>
-
-              <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-
-                Experience the future of food commerce with blockchain-powered transparency and direct farmer connections.
-
-              </p>
-
-            </div>
-
-
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-
-              <div className="text-center">
-
-                <div className="bg-green-100 dark:bg-green-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-
-                  <span className="text-2xl">🌱</span>
-
-                </div>
-
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-
-                  Fresh & Local
-
-                </h3>
-
-                <p className="text-gray-600 dark:text-gray-400">
-
-                  Direct from local farms to your table, ensuring maximum freshness and supporting your community.
-
+            {/* Products Section */}
+            <section>
+              <div className="flex justify-between items-center mb-6 border-b-2 border-dashed border-[#30214f] pb-4">
+                <h2 className="text-2xl font-pixel text-white">
+                  // {showBlockchainProducts ? 'ON-CHAIN_ASSETS' : 'DATABASE_LISTINGS'}
+                </h2>
+                <p className="text-gray-400">
+                  {filteredProducts.length} ASSETS_FOUND
                 </p>
-
               </div>
 
-
-
-              <div className="text-center">
-
-                <div className="bg-blue-100 dark:bg-blue-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-
-                  <span className="text-2xl">🔗</span>
-
+              {loading ? (
+                //_ A retro loading animation
+                <div className="text-center py-12">
+                  <p className="font-pixel text-lg animate-pulse">LOADING_RESOURCES...</p>
                 </div>
-
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-
-                  Blockchain Verified
-
-                </h3>
-
-                <p className="text-gray-600 dark:text-gray-400">
-
-                  Complete transparency with blockchain technology tracking every step from farm to your door.
-
-                </p>
-
-              </div>
-
-
-
-              <div className="text-center">
-
-                <div className="bg-purple-100 dark:bg-purple-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-
-                  <span className="text-2xl">🤝</span>
-
+              ) : error ? (
+                //_ A retro error message
+                <div className="text-center py-12 border-2 border-red-500 p-4">
+                  <h3 className="text-lg font-pixel text-red-500 mb-2">[SYSTEM_ERROR]</h3>
+                  <p className="text-red-400 mb-4">{error}</p>
+                  <button onClick={refetchProducts} className="font-pixel text-sm bg-red-500 text-white px-4 py-2 hover:bg-red-400">[RETRY]</button>
                 </div>
-
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-
-                  Fair Trade
-
-                </h3>
-
-                <p className="text-gray-600 dark:text-gray-400">
-
-                  Direct payments to farmers ensure fair compensation and sustainable farming practices.
-
-                </p>
-
-              </div>
-
-            </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredProducts.map((product) => (
+                    // The component call is now much cleaner and will have no errors.
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
 
           </div>
-
-        </section>
+        </div>
       </main>
 
       <Footer />

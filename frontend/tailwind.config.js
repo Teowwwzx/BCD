@@ -6,11 +6,19 @@ module.exports = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   darkMode: 'class',
+  // theme: {
+  //   extend: {
+  //     colors: {
+  //       background: 'var(--background)',
+  //       foreground: 'var(--foreground)',
+  //     },
+  //   },
+  // },
   theme: {
     extend: {
-      colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
+      fontFamily: {
+        'pixel': ['"Press Start 2P"', 'system-ui'],
+        'mono-pixel': ['"VT323"', 'monospace'],
       },
     },
   },

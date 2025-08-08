@@ -139,7 +139,8 @@ router.get('/:id', async (req, res) => {
         // Also include other related data you might need
         category: true,
         images: true,
-        attributes: true
+        attributes: true,
+        product_reviews: true 
       }
     });
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getTotalListings, getListing, formatEther } from '../lib/web3';
+import { ethers } from 'ethers';
+import { getTotalListings, getListing } from '../lib/web3';
 
 // Define the final, unified shape of a product for display
 export interface DisplayProduct {
@@ -28,52 +29,48 @@ export const useProducts = () => {
 
     const fetchProducts = useCallback(async () => {
         setLoading(true);
-        setError(null);
         try {
-            // Fetch from your off-chain database API
+            // Fetch from DB API
             const dbResponse = await fetch('http://localhost:5000/api/products');
-            if (!dbResponse.ok) throw new Error(`API fetch error! status: ${dbResponse.status}`);
             const dbData = await dbResponse.json();
 
+            // THIS IS THE FIX: Transform raw data into DisplayProduct
             const databaseProducts = (dbData.data || []).map((p: any): DisplayProduct => ({
                 id: `db-${p.id}`,
                 name: p.name,
+                description: p.description || '',
                 price: parseFloat(p.price),
-                quantity: p.stock_quantity,
+                quantity: p.quantity,
                 seller: p.seller.username,
-                rating: p.rating || 0,
-                description: p.description,
+                rating: p.product_reviews?.length > 0 ? p.product_reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / p.product_reviews.length : 0,
                 category: p.category?.name || 'Uncategorized',
-                image: p.images?.[0]?.imageUrl || 'https://res.cloudinary.com/demo/image/upload/v1629892837/sample.jpg',
-                inStock: p.stock_quantity > 0,
-                isBlockchain: false,
+                image: p.images?.[0]?.imageUrl || '', // Creates the 'image' property
+                inStock: p.quantity > 0,
+                isBlockchain: false, // Creates the 'isBlockchain' property
+                blockchainData: undefined,
             }));
 
             // Fetch from the on-chain smart contract
             const totalListings = Number(await getTotalListings());
+            
             const blockchainProducts: DisplayProduct[] = [];
             for (let i = 1; i <= totalListings; i++) {
                 try {
                     const listing = await getListing(i);
-                    if (Number(listing[9]) === 0) { // Active status
-                        const productData = {
-                            listingId: Number(listing[0]), seller: listing[1], name: listing[2],
-                            description: listing[3], category: listing[4], price: listing[5],
-                            quantity: Number(listing[6]), imageUrl: listing[8]
-                        };
+                    if (listing.status === 0) { // ListingStatus.Active
                         blockchainProducts.push({
-                            id: `blockchain-${productData.listingId}`,
-                            name: productData.name,
-                            price: parseFloat(formatEther(productData.price)),
-                            quantity: productData.quantity,
-                            seller: `${productData.seller.slice(0, 6)}...${productData.seller.slice(-4)}`,
-                            rating: 4.5,
-                            description: productData.description,
-                            category: productData.category,
-                            image: productData.imageUrl || 'https://res.cloudinary.com/demo/image/upload/v1629892837/sample.jpg',
-                            inStock: productData.quantity > 0,
+                            id: `blockchain-${listing.listingId}`,
+                            name: listing.name,
+                            price: parseFloat(ethers.formatEther(listing.price)),
+                            quantity: Number(listing.quantity),
+                            seller: `${listing.seller.slice(0, 6)}...${listing.seller.slice(-4)}`,
+                            rating: 4.5, // Placeholder
+                            description: listing.description,
+                            category: listing.category,
+                            image: listing.imageUrl || '',
+                            inStock: Number(listing.quantity) > 0,
                             isBlockchain: true,
-                            blockchainData: productData
+                            blockchainData: listing, // Pass the whole struct
                         });
                     }
                 } catch (err) {

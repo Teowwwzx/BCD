@@ -139,10 +139,9 @@ export const createListing = async (name: string, description: string, category:
   return await tx.wait();
 };
 
-export const purchaseProduct = async (listingId: number, quantity: number, totalPrice: string) => {
+export const purchaseProduct = async (listingId: number, quantity: number, options: { value: bigint }) => {
   const contract = await getMarketplaceContractWithSigner();
-  const priceInWei = parseEther(totalPrice);
-  const tx = await contract.purchaseProduct(listingId, quantity, { value: priceInWei });
+  const tx = await contract.purchaseProduct(listingId, quantity, options);
   return await tx.wait();
 };
 
