@@ -1,35 +1,28 @@
+// frontend/src/contexts/CartContext.tsx
+
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth'; // Our source of truth for the logged-in user
+import type { CartItem } from '../types'; // The type defined in our central types file
 
-interface CartItem {
-  id: number;
-  productId: number;
-  userId: number;
-  quantity: number;
-  product: {
-    id: number;
-    name: string;
-    price?: number;
-    priceEth?: number;
-    priceUsd?: number;
-    imageUrl?: string;
-  };
-}
-
+// 1. Define a more complete "menu" for our context
 interface CartContextType {
   cartItems: CartItem[];
   cartCount: number;
-  loading: boolean;
+  loading: boolean; // A general loading state for the initial fetch
+  error: string | null;
   addToCart: (productId: number, quantity?: number) => Promise<void>;
   updateCartItem: (productId: number, quantity: number) => Promise<void>;
   removeFromCart: (productId: number) => Promise<void>;
   clearCart: () => Promise<void>;
-  refreshCart: () => Promise<void>;
+  refetchCart: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+// 2. Create the custom hook for components to use.
+// This follows our rule: NEVER use `useContext(CartContext)` directly in pages.
 export const useCart = () => {
   const context = useContext(CartContext);
   if (context === undefined) {
@@ -38,212 +31,118 @@ export const useCart = () => {
   return context;
 };
 
-interface CartProviderProps {
-  children: ReactNode;
-}
-
-const API_BASE_URL = 'http://localhost:5000/api';
-const MOCK_USER_ID = 1; // For demo purposes
-
-export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
+export const CartProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth(); // Get the user from our central auth hook
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [cartCount, setCartCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // For initial load
+  const [error, setError] = useState<string | null>(null);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-  // Fetch cart items
-  const fetchCartItems = async () => {
+  // 3. Centralized API call handler for DRY principle
+  const handleApiCall = async (endpoint: string, options: RequestInit) => {
+    setError(null);
     try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/cart/${MOCK_USER_ID}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        // Transform the data to match frontend interface
-        const transformedItems = (data.data.items || []).map((item: any) => ({
-          ...item,
-          product: {
-            ...item.product,
-            imageUrl: item.product.images && item.product.images.length > 0 
-              ? item.product.images[0].imageUrl 
-              : undefined
-          }
-        }));
-        setCartItems(transformedItems);
-      } else {
-        console.error('Failed to fetch cart items:', data.error);
+      const response = await fetch(`${API_BASE_URL}/cart${endpoint}`, options);
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'An API error occurred.');
       }
-    } catch (error) {
-      console.error('Error fetching cart items:', error);
-    } finally {
+      return result;
+    } catch (err: any) {
+      setError(err.message);
+      console.error(`Cart API Error (${endpoint}):`, err);
+      return null;
+    }
+  };
+
+  // Function to fetch the entire cart state
+  const fetchCart = useCallback(async () => {
+    if (!user) {
+      setCartItems([]);
+      setCartCount(0);
       setLoading(false);
+      return;
     }
-  };
 
-  // Fetch cart count
-  const fetchCartCount = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/cart/count/${MOCK_USER_ID}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setCartCount(data.data.cartCount || 0);
-      } else {
-        console.error('Failed to fetch cart count:', data.error);
-      }
-    } catch (error) {
-      console.error('Error fetching cart count:', error);
+    setLoading(true);
+    const result = await handleApiCall(`/${user.id}`, { method: 'GET' });
+    if (result) {
+      setCartItems(result.data.items || []);
+      setCartCount(result.data.totalItems || 0);
     }
-  };
+    setLoading(false);
+  }, [user]);
 
-  // Add item to cart
-  const addToCart = async (productId: number, quantity: number = 1) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/cart/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: MOCK_USER_ID,
-          productId,
-          quantity,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        await fetchCartItems();
-        await fetchCartCount();
-      } else {
-        console.error('Failed to add to cart:', data.error);
-        alert('Failed to add item to cart');
-      }
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      alert('Error adding item to cart');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Update cart item quantity
-  const updateCartItem = async (productId: number, quantity: number) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/cart/update`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: MOCK_USER_ID,
-          productId,
-          quantity,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        await fetchCartItems();
-        await fetchCartCount();
-      } else {
-        console.error('Failed to update cart item:', data.error);
-        alert('Failed to update cart item');
-      }
-    } catch (error) {
-      console.error('Error updating cart item:', error);
-      alert('Error updating cart item');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Remove item from cart
-  const removeFromCart = async (productId: number) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/cart/remove`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: MOCK_USER_ID,
-          productId,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        await fetchCartItems();
-        await fetchCartCount();
-      } else {
-        console.error('Failed to remove from cart:', data.error);
-        alert('Failed to remove item from cart');
-      }
-    } catch (error) {
-      console.error('Error removing from cart:', error);
-      alert('Error removing item from cart');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Clear entire cart
-  const clearCart = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/cart/clear/${MOCK_USER_ID}`, {
-        method: 'DELETE',
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setCartItems([]);
-        setCartCount(0);
-      } else {
-        console.error('Failed to clear cart:', data.error);
-        alert('Failed to clear cart');
-      }
-    } catch (error) {
-      console.error('Error clearing cart:', error);
-      alert('Error clearing cart');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Refresh cart data
-  const refreshCart = async () => {
-    await fetchCartItems();
-    await fetchCartCount();
-  };
-
-  // Load cart data on mount
+  // Fetch cart data when the user logs in or out
   useEffect(() => {
-    fetchCartItems();
-    fetchCartCount();
-  }, []);
+    fetchCart();
+  }, [fetchCart]);
 
-  const value: CartContextType = {
+  // --- Public Functions ---
+
+  const addToCart = async (productId: number, quantity: number = 1) => {
+    if (!user) return alert('Please log in to add items to your cart.');
+    
+    const result = await handleApiCall('/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, productId, quantity }),
+    });
+
+    if (result) await fetchCart(); // Refetch the cart to update state
+  };
+
+  const updateCartItem = async (productId: number, quantity: number) => {
+    if (!user) return;
+    if (quantity <= 0) { // If quantity is 0 or less, remove the item
+        await removeFromCart(productId);
+        return;
+    }
+
+    const result = await handleApiCall('/update', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, productId, quantity }),
+    });
+    
+    if (result) await fetchCart();
+  };
+
+  const removeFromCart = async (productId: number) => {
+    if (!user) return;
+    
+    const result = await handleApiCall('/remove', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, productId }),
+    });
+
+    if (result) await fetchCart();
+  };
+
+  const clearCart = async () => {
+    if (!user) return;
+
+    const result = await handleApiCall(`/clear/${user.id}`, { method: 'DELETE' });
+
+    if (result) {
+      setCartItems([]);
+      setCartCount(0);
+    }
+  };
+
+  const value = {
     cartItems,
     cartCount,
     loading,
+    error,
     addToCart,
     updateCartItem,
     removeFromCart,
     clearCart,
-    refreshCart,
+    refetchCart: fetchCart,
   };
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  );
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

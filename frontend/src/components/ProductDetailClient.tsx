@@ -1,127 +1,89 @@
+// frontend/src/components/ProductDetailClient.tsx
+
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
+import React, { useState } from 'react';
 import Image from 'next/image';
-import { ethers } from 'ethers';
-import { useProductById } from '../hooks/useProductById';
-import { useWallet } from '../contexts/WalletContext';
-import { useCart } from '../contexts/CartContext';
-import { purchaseProduct } from '../lib/web3';
+import { useProduct } from '../hooks/useProduct';
+import { useCart } from '../contexts/CartContext';      // THE FIX: Import the hook
+import { useAuth } from '../contexts/AuthContext';
 
-// This is the interactive client component for the product detail page.
-// It receives the product `id` as a simple string prop from its parent Server Component.
 export default function ProductDetailClient({ id }: { id: string }) {
-    // 1. Fetch all necessary data and functions from our custom hooks.
-    const { product, loading, error, refetchProduct } = useProductById(id);
-    const { walletAddress } = useWallet();
+    console.log('CLIENT COMPONENT (ProductDetailClient.tsx): Received prop id:', id);
+
+    const { product, loading, error } = useProduct(id);
+    const [quantity, setQuantity] = useState(1);
+
+    // --- THE FIX ---
+    // Call our custom hook directly. It's cleaner and safer.
     const { addToCart, loading: cartLoading } = useCart();
-    console.log('Product data in component:', product);
+    const { isLoggedIn, user } = useAuth();
 
-    // 2. Define the logic for the purchase button.
-    const handlePurchase = async () => {
-        if (!product) return;
-
-        // Handle blockchain purchases
-        if (product.isBlockchain) {
-            if (!walletAddress || !product.blockchainData) {
-                alert('Please connect your wallet to purchase blockchain items.');
-                return;
-            }
-            try {
-                const priceInWei = ethers.parseEther(product.price.toString());
-                await purchaseProduct(product.blockchainData.listingId, 1, { value: priceInWei });
-                alert('Purchase successful! Transaction sent.');
-                refetchProduct(); // Refetch data to show updated stock
-            } catch (err: any) {
-                const message = err.reason || err.message || "An unknown error occurred.";
-                alert(`Purchase failed: ${message}`);
-            }
-            // Handle database (off-chain) cart additions
-        } else {
-            try {
-                const productId = parseInt(product.id.replace('db-', ''));
-                await addToCart(productId, 1);
-                alert(`${product.name} added to cart!`);
-            } catch (err) {
-                alert('Failed to add item to cart.');
-            }
+    const handleAddToCart = async () => {
+        if (!isLoggedIn) {
+            alert("Please log in to add items to your cart.");
+            return;
+        }
+        if (product && !product.isBlockchain) {
+            // The product ID from the hook is the raw database ID
+            await addToCart(product.id, quantity);
+            alert(`${product.name} added to cart!`);
         }
     };
 
-    // 3. Main render function to handle loading, error, and success states.
-    const renderContent = () => {
-        // State: Loading
-        if (loading) {
-            return <div className="text-center py-20 font-pixel text-lg animate-pulse">LOADING_PRODUCT_DATA...</div>;
-        }
+    if (loading) return <div>Loading Product...</div>;
+    if (error) return <div>Error: {error}</div>;
+    if (!product) return <div>Product not found.</div>;
 
-        // State: Error
-        if (error || !product) {
-            return (
-                <div className="text-center py-20 border-2 border-red-500 p-4">
-                    <h3 className="text-lg font-pixel text-red-500 mb-2">[DATA_CORRUPTION]</h3>
-                    <p className="text-red-400 mb-4">{error || 'Could not load product.'}</p>
-                    <Link href="/" className="font-pixel text-sm bg-red-500 text-white px-4 py-2 hover:bg-red-400">[RETURN_TO_MARKET]</Link>
-                </div>
-            );
-        }
-
-        // State: Success - Render the full page layout
-        return (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-                {/* Left Column: Image */}
-                <div className="md:col-span-2">
-                    <div className="p-1 bg-gradient-to-br from-[#f0f] to-[#0ff]">
-                        <div className="bg-black aspect-square w-full relative">
-                            <Image
-                                src={product.image || '/placeholder.png'}
-                                alt={product.name}
-                                fill
-                                className="object-cover"
-                                unoptimized // Add this if you have issues with external non-configured image URLs
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Column: Details */}
-                <div className="md:col-span-3">
-                    <h1 className="font-pixel text-3xl md:text-4xl text-white mb-4">{product.name}</h1>
-
-                    <div className="flex items-center space-x-4 mb-6">
-                        <span className="px-3 py-1 bg-cyan-500 text-black text-sm font-bold">{product.category}</span>
-                        {product.isBlockchain && <span className="px-3 py-1 bg-purple-500 text-white text-sm font-bold">ON-CHAIN</span>}
-                    </div>
-
-                    <p className="text-lg text-gray-300 mb-8 leading-relaxed">{product.description}</p>
-
-                    <div className="border-y-2 border-dashed border-[#30214f] py-4 mb-8 space-y-2">
-                        <p className="text-xl">SELLER :: <span className="text-white">{product.seller}</span></p>
-                        <p className="text-xl">STOCK :: <span className="text-white">{product.inStock ? product.quantity : 'OUT_OF_STOCK'}</span></p>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                        <p className="font-pixel text-4xl text-[#00f5c3]">${product.price.toFixed(2)}</p>
-                        <button
-                            onClick={handlePurchase}
-                            disabled={!product.inStock || cartLoading}
-                            className="bg-[#00f5c3] text-black px-8 py-4 font-pixel text-md hover:bg-white disabled:bg-gray-600 disabled:cursor-not-allowed"
-                        >
-                            {product.isBlockchain ? '[ BUY_NOW ]' : '[ ADD_TO_CART ]'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
+    const imageUrl = product.images?.[0]?.imageUrl || '/placeholder.png';
+    const sellerName = product.seller?.username || 'Unknown Seller';
 
     return (
-        <main className="container mx-auto px-4 py-16">
-            <div className="mb-8">
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">&lt;&lt; RETURN_TO_MARKET</Link>
+        <div className="container mx-auto p-8 text-white">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <Image
+                        src={imageUrl}
+                        alt={product.name}
+                        width={500}
+                        height={500}
+                        className="rounded-lg"
+                    />
+                </div>
+                <div>
+                    <h1 className="text-4xl font-bold mb-4">{product.name}</h1>
+                    <p className="text-gray-400 mb-4">Sold by: {sellerName}</p>
+                    <p className="text-2xl text-cyan-400 mb-6">${product.price.toFixed(2)}</p>
+                    <p className="mb-6">{product.description}</p>
+
+                    <div className="flex items-center gap-4 mb-6">
+                        <input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value)))}
+                            className="w-20 p-2 bg-gray-800 border border-gray-600 rounded"
+                            min="1"
+                        />
+                        <button
+                            onClick={handleAddToCart}
+                            disabled={cartLoading || product.isBlockchain}
+                            className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold py-2 px-6 rounded disabled:opacity-50"
+                        >
+                            {cartLoading ? 'Adding...' : 'Add to Cart'}
+                        </button>
+                    </div>
+
+                    {product.isBlockchain && (
+                        <div className="border-t border-gray-700 pt-6 mt-6">
+                            <h2 className="text-2xl font-bold text-purple-400 mb-4">On-Chain Asset</h2>
+                            {/* Blockchain-specific purchase logic would go here */}
+                            <button className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded">
+                                Purchase with Wallet
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
-            {renderContent()}
-        </main>
+        </div>
     );
 }

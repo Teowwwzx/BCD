@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 
 export default function CartPage() {
-  const { isLoggedIn, isWalletConnected, walletAddress, connectWallet } = useWallet();
+  const { isLoggedIn, isWalletConnected, walletAddress, connectWallet } = useAuth();
   const { cartItems, updateCartItem, removeFromCart, clearCart, loading } = useCart();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +57,7 @@ export default function CartPage() {
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
-      const price = item.product.priceEth || item.product.price || 0;
+      const price = item.product.price || 0;
       return total + (price * item.quantity);
     }, 0).toFixed(2);
   };
@@ -140,9 +140,9 @@ export default function CartPage() {
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
                         <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                          {item.product.imageUrl ? (
+                          {item.product.images?.[0]?.imageUrl ? (
                             <img 
-                              src={item.product.imageUrl} 
+                              src={item.product.images[0].imageUrl} 
                               alt={item.product.name}
                               className="w-full h-full object-cover rounded-lg"
                             />
@@ -161,7 +161,7 @@ export default function CartPage() {
                         </div>
                         <div className="flex items-center space-x-2">
                           <button 
-                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                             className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"
                             disabled={loading}
                           >
@@ -169,7 +169,7 @@ export default function CartPage() {
                           </button>
                           <span className="w-8 text-center">{item.quantity}</span>
                           <button 
-                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                             className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"
                             disabled={loading}
                           >
@@ -178,17 +178,17 @@ export default function CartPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-blue-600">
-                            {item.product.priceEth ? `${item.product.priceEth} ETH` : `$${item.product.price || 0}`}
+                            {item.product.price ? `${item.product.price} ETH` : `$${item.product.price || 0}`}
                           </p>
                           <p className="text-sm text-gray-500">
-                            Total: {item.product.priceEth ? 
-                              `${(item.product.priceEth * item.quantity).toFixed(4)} ETH` : 
+                            Total: {item.product.price ? 
+                              `${(item.product.price * item.quantity).toFixed(4)} ETH` : 
                               `$${((item.product.price || 0) * item.quantity).toFixed(2)}`
                             }
                           </p>
                         </div>
                         <button 
-                          onClick={() => removeItem(item.productId)}
+                          onClick={() => removeItem(item.product.id)}
                           className="text-red-500 hover:text-red-700 p-2"
                           disabled={loading}
                         >
