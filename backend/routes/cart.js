@@ -4,18 +4,23 @@ const router = express.Router();
 
 const prisma = new PrismaClient();
 
-// Middleware to handle database connection errors
-router.use(async (req, res, next) => {
-  try {
-    await prisma.$connect();
-    next();
-  } catch (error) {
-    console.error('Database connection failed:', error);
-    res.status(500).json({ success: false, error: 'Database connection error' });
-  }
-});
 
-// GET /api/cart/:userId - Get user's cart items
+async function getCartSummary(userId) {
+  const cartItems = await prisma.cartItem.findMany({
+    where: { userId },
+    include: { product: { select: { price: true } } },
+  });
+
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = cartItems.reduce((sum, item) => {
+    return sum + Number(item.product.price) * item.quantity;
+  }, 0);
+
+  return { totalItems, totalPrice };
+}
+
+// --- GET /api/cart/:userId ---
+// Fetches all cart items for a specific user.
 router.get('/:userId', async (req, res) => {
   const { userId } = req.params;
   const userIdInt = parseInt(userId, 10);
@@ -39,7 +44,8 @@ router.get('/:userId', async (req, res) => {
             }
           }
         }
-      }
+      },
+      orderBy: { createdAt: 'asc' }
     });
 
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -74,53 +80,29 @@ router.post('/add', async (req, res) => {
   }
 
   try {
-    const product = await prisma.product.findUnique({ where: { id: productIdInt } });
-
-    if (!product) {
-      return res.status(404).json({ success: false, error: 'Product not found' });
-    }
-
-    const existingCartItem = await prisma.cartItem.findUnique({
-      where: { userId_productId: { userId: userIdInt, productId: productIdInt } },
-    });
-
-    let updatedOrNewCartItem;
-    if (existingCartItem) {
-      const newQuantity = existingCartItem.quantity + quantityInt;
-      if (product.quantity < newQuantity) {
-        return res.status(400).json({ success: false, error: 'Insufficient product stock' });
-      }
-      updatedOrNewCartItem = await prisma.cartItem.update({
-        where: { id: existingCartItem.id },
-        data: { quantity: newQuantity },
-        include: { product: true }
-      });
-    } else {
-      if (product.quantity < quantityInt) {
-        return res.status(400).json({ success: false, error: 'Insufficient product stock' });
-      }
-      updatedOrNewCartItem = await prisma.cartItem.create({
-        data: {
-          userId: userIdInt,
-          productId: productIdInt,
-          quantity: quantityInt
-        },
-        include: { product: true }
-      });
-    }
-
-    const cartCountResult = await prisma.cartItem.aggregate({
-      where: { userId: userIdInt },
-      _sum: { quantity: true }
+    const cartItem = await prisma.cartItem.upsert({
+      where: { 
+        userId_productId: { 
+          userId: parseInt(userId),
+          productId: parseInt(productId),
+        } 
+      },
+      update: {
+        quantity: {
+          increment: parseInt(quantity),
+        }
+      },
+      create: {
+        userId: parseInt(userId),
+        productId: parseInt(productId),
+        quantity: parseInt(quantity),
+      },
     });
 
     res.status(201).json({
       success: true,
       message: 'Item added to cart successfully',
-      data: {
-        cartItem: updatedOrNewCartItem,
-        cartCount: cartCountResult._sum.quantity || 0
-      },
+      data: cartItem,
     });
   } catch (error) {
     console.error('Error adding to cart:', error);
@@ -162,15 +144,12 @@ router.put('/update', async (req, res) => {
       });
     }
 
-    const cartCountResult = await prisma.cartItem.aggregate({
-      where: { userId: userIdInt },
-      _sum: { quantity: true }
-    });
+    const summary = await getCartSummary(userIdInt);
 
     res.json({
       success: true,
       message: 'Cart updated successfully',
-      data: { cartCount: cartCountResult._sum.quantity || 0 }
+      data: summary // Return the new totalItems and totalPrice
     });
   } catch (error) {
     console.error('Error updating cart:', error);
@@ -197,15 +176,12 @@ router.delete('/remove', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Cart item not found' });
     }
 
-    const cartCountResult = await prisma.cartItem.aggregate({
-      where: { userId: userIdInt },
-      _sum: { quantity: true }
-    });
+    const summary = await getCartSummary(userIdInt);
 
     res.json({
-      success: true,
-      message: 'Item removed from cart successfully',
-      data: { cartCount: cartCountResult._sum.quantity || 0 }
+        success: true,
+        message: 'Item removed from cart successfully',
+        data: summary
     });
   } catch (error) {
     console.error('Error removing from cart:', error);

@@ -80,6 +80,7 @@ app.get('/health', async (req, res) => {
 });
 
 // Import and test routes one by one
+const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const productsRoutes = require('./routes/products');
 const ordersRoutes = require('./routes/orders');
@@ -87,8 +88,11 @@ const shipmentsRoutes = require('./routes/shipments');
 const reviewsRoutes = require('./routes/reviews');
 const cartRoutes = require('./routes/cart');
 const categoriesRoutes = require('./routes/categories');
+const notificationRoutes = require('./routes/notifications');
+const statsRoutes = require('./routes/stats');
 
 console.log('Loading users routes...');
+app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 console.log('✓ Users routes loaded');
 
@@ -123,6 +127,15 @@ console.log('✓ Reviews routes loaded');
 console.log('Loading cart routes...');
 app.use('/api/cart', cartRoutes);
 console.log('✓ Cart routes loaded');
+
+console.log('Loading notifications routes...');
+app.use('/api/notifications', notificationRoutes);
+console.log('✓ Notification routes loaded');
+
+console.log('Loading stats routes...');
+app.use('/api/stats', statsRoutes);
+console.log('✓ Stats routes loaded');
+
 
 // Root endpoint
 app.get('/', (req, res) => {
