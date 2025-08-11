@@ -18,8 +18,8 @@ export const useProfile = (userId: string | null) => {
         try {
             // Fetch all data concurrently for speed
             const [profileRes, ordersRes] = await Promise.all([
-                fetch(`${API_BASE_URL}/api/users/${userId}`),
-                fetch(`${API_BASE_URL}/api/orders?buyerId=${userId}`),
+                fetch(`${API_BASE_URL}/users/${userId}`),
+                fetch(`${API_BASE_URL}/orders?buyerId=${userId}`),
             ]);
 
             if (!profileRes.ok || !ordersRes.ok) {

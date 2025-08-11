@@ -20,7 +20,7 @@ export const useOrders = (userId: string | null) => {
         setError(null);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/orders?buyerId=${userId}`);
+            const response = await fetch(`${API_BASE_URL}/orders?buyerId=${userId}`);
             if (!response.ok) {
                 throw new Error('Failed to fetch orders.');
             }
