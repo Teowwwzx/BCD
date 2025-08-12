@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useWallet } from '../contexts/WalletContext';
 import { DashboardStats } from '../types/index';
 import { useAuth } from '../hooks/useAuth';
 

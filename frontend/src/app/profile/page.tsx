@@ -13,6 +13,7 @@ import Link from 'next/link';
 export default function ProfilePage() {
   const { user, isLoading: authLoading, isLoggedIn } = useAuth();
   const router = useRouter();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
   const userId = user ? user.id : null;
   const { profile, profileLoading } = useProfile(userId);
@@ -50,7 +51,7 @@ export default function ProfilePage() {
     if (!profile) return;
     if (confirm('Are you sure you want to become a seller?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/users/${profile.id}/upgrade-to-seller`, {
+        const response = await fetch(`${API_BASE_URL}/api/users/${profile.id}/upgrade-to-seller`, {
           method: 'PUT',
         });
         const data = await response.json();

@@ -10,7 +10,7 @@ export const useProfile = (userId: string | null) => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -18,12 +18,16 @@ export const useProfile = (userId: string | null) => {
         try {
             // Fetch all data concurrently for speed
             const [profileRes, ordersRes] = await Promise.all([
-                fetch(`${API_BASE_URL}/users/${userId}`),
-                fetch(`${API_BASE_URL}/orders?buyerId=${userId}`),
+                fetch(`${API_BASE_URL}/api/users/${userId}`),
+                fetch(`${API_BASE_URL}/api/orders?buyerId=${userId}`),
             ]);
 
-            if (!profileRes.ok || !ordersRes.ok) {
-                throw new Error('Failed to fetch all profile data.');
+            if (!profileRes.ok) {
+                throw new Error(`Failed to fetch profile data: ${profileRes.status} ${profileRes.statusText}`);
+            }
+            
+            if (!ordersRes.ok) {
+                throw new Error(`Failed to fetch orders data: ${ordersRes.status} ${ordersRes.statusText}`);
             }
 
             const profileData = await profileRes.json();

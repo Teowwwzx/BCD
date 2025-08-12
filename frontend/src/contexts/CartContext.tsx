@@ -12,7 +12,7 @@ interface CartContextType {
   cartCount: number;
   loading: boolean; // A general loading state for the initial fetch
   error: string | null;
-  addToCart: (productId: number, quantity?: number) => Promise<void>;
+  addToCart: (productId: number, quantity?: number) => Promise<boolean>;
   updateCartItem: (productId: number, quantity: number) => Promise<void>;
   removeFromCart: (productId: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -37,13 +37,16 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(true); // For initial load
   const [error, setError] = useState<string | null>(null);
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
   // 3. Centralized API call handler for DRY principle
   const handleApiCall = async (endpoint: string, options: RequestInit) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/cart${endpoint}`, options);
+      const response = await fetch(`${API_BASE_URL}/api/cart${endpoint}`, options);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
       const result = await response.json();
       if (!result.success) {
         throw new Error(result.error || 'An API error occurred.');
@@ -81,16 +84,23 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   // --- Public Functions ---
 
-  const addToCart = async (productId: number, quantity: number = 1) => {
-    if (!user) return alert('Please log in to add items to your cart.');
-    
+  const addToCart = async (productId: number, quantity: number = 1): Promise<boolean> => {
+    if (!user) {
+      alert('Please log in to add items to your cart.');
+      return false;
+    }
+
     const result = await handleApiCall('/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: user.id, productId, quantity }),
     });
 
-    if (result) await fetchCart(); // Refetch the cart to update state
+    if (result) {
+      await fetchCart(); // Refetch the cart to update state
+      return true;
+    }
+    return false;
   };
 
   const updateCartItem = async (productId: number, quantity: number) => {
@@ -132,7 +142,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const value = {
+  const value: CartContextType = {
     cartItems,
     cartCount,
     loading,

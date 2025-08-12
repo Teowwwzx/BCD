@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { useWallet } from './WalletContext'; // Assuming you have a user ID here eventually
+import { useAuth } from './AuthContext'; // Get user ID from auth context
 
 // Define the shape of a single notification
 export interface Notification {

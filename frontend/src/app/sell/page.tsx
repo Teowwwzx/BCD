@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 
@@ -28,7 +28,7 @@ interface Sale {
 }
 
 const SellPage: React.FC = () => {
-  const { isLoggedIn } = useWallet();
+  const { isLoggedIn } = useAuth();
   const router = useRouter();
   
   // All useState hooks must be declared before any early returns

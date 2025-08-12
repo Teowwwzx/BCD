@@ -7,7 +7,7 @@ export const useOrders = (userId: string | null) => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
     const fetchOrders = useCallback(async () => {
         // We need a userId to fetch orders
@@ -20,9 +20,9 @@ export const useOrders = (userId: string | null) => {
         setError(null);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/orders?buyerId=${userId}`);
+            const response = await fetch(`${API_BASE_URL}/api/orders?buyerId=${userId}`);
             if (!response.ok) {
-                throw new Error('Failed to fetch orders.');
+                throw new Error(`Failed to fetch orders: ${response.status} ${response.statusText}`);
             }
             const data = await response.json();
             setOrders(data.data || []);

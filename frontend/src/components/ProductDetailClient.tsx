@@ -48,6 +48,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
                         width={500}
                         height={500}
                         className="rounded-lg"
+                        unoptimized // Useful for external URLs that aren't configured in next.config.js
                     />
                 </div>
                 <div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Product } from '../types'; // Import our main Product type
 
 // Use the environment variable for the API URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 /**
  * A custom hook to fetch a single product by its prefixed ID (e.g., "db-1").
@@ -37,7 +37,8 @@ export const useProduct = (id: string | null) => {
                 console.log(`HOOK (useProduct.ts): Stripped prefix. Making API call with numericId: "${numericId}"`);
 
                 // 3. Make the API call with ONLY the numeric ID.
-                const response = await fetch(`${API_BASE_URL}/products/${numericId}`);
+                console.log(`HOOK (useProduct.ts): Making API call to: ${API_BASE_URL}/api/products/${numericId}`);
+                const response = await fetch(`${API_BASE_URL}/api/products/${numericId}`);
                 console.log(`HOOK (useProduct.ts): API call response status: ${response.status}`);
 
                 if (!response.ok) {

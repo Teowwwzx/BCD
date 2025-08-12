@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 import { User } from '../types';
 import { connectWallet as web3ConnectWallet } from '../lib/web3'; // Import wallet functions
 
+// Define RegisterData interface
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
 
 // 1. Define the new, unified context type
 interface AuthContextType {
@@ -22,6 +30,7 @@ interface AuthContextType {
   
   // Functions
   login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
   connectWallet: () => Promise<void>;
@@ -51,7 +60,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isConnecting, setIsConnecting] = useState(false);
   
   const router = useRouter();
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
   // Rehydrate state from localStorage on initial load
   useEffect(() => {
@@ -74,7 +83,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -88,7 +97,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.setItem('user', JSON.stringify(loggedInUser));
         localStorage.setItem('token', data.data.token);
 
-        if (!isWalletConnected) await connectWallet();
+        // Try to connect wallet but don't block login if it fails
+        if (!isWalletConnected) {
+          try {
+            await connectWallet();
+          } catch (walletError) {
+            console.error('Wallet connection failed but continuing login:', walletError);
+            // Continue with login even if wallet connection fails
+          }
+        }
+        
         if (loggedInUser.user_role === 'admin') router.push('/admin');
         else router.push('/profile');
         return true;
@@ -105,30 +123,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // const register = async (userData: RegisterData) => {
-  //   setIsLoading(true);
-  //   setError(null);
-  //   try {
-  //     const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify(userData),
-  //     });
-  //     const data = await response.json();
-  //     if (data.success) {
-  //       // Automatically log in the user after successful registration
-  //       return await login(userData.email, userData.password);
-  //     } else {
-  //       setError(data.error || 'Registration failed');
-  //       setIsLoading(false);
-  //       return false;
-  //     }
-  //   } catch (err) {
-  //     setError('An error occurred during registration.');
-  //     setIsLoading(false);
-  //     return false;
-  //   }
-  // };
+  const register = async (userData: RegisterData) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Automatically log in the user after successful registration
+        return await login(userData.email, userData.password);
+      } else {
+        setError(data.error || 'Registration failed');
+        setIsLoading(false);
+        return false;
+      }
+    } catch (err) {
+      setError('An error occurred during registration.');
+      setIsLoading(false);
+      return false;
+    }
+  };
 
   const logout = () => {
     // Clear both user session and wallet state
@@ -178,6 +196,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isLoading,
       error,
       login,
+      register,
       logout,
       updateUser,
       clearError,
