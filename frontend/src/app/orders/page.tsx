@@ -54,6 +54,20 @@ export default function OrdersPage() {
     return <div>Loading your orders...</div>;
   }
 
+  const formatAmount = (val: any) => {
+    try {
+      if (val == null) return '0.00';
+      const n = typeof val === 'string'
+        ? parseFloat(val)
+        : typeof val === 'number'
+          ? val
+          : (typeof val?.toNumber === 'function' ? val.toNumber() : Number(val));
+      return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+    } catch {
+      return '0.00';
+    }
+  };
+
   return (
     <div className="bg-gray-900 min-h-screen">
       <Header />
@@ -66,7 +80,7 @@ export default function OrdersPage() {
                 <li key={order.id} className="border-b border-gray-700 py-4">
                   <p className="text-white">Order ID: {order.id}</p>
                   <p className="text-gray-400">Status: {order.order_status}</p>
-                  <p className="text-gray-400">Total: ${order.totalAmount.toFixed(2)}</p>
+                  <p className="text-gray-400">Total: ${formatAmount(order.totalAmount)}</p>
                 </li>
               ))}
             </ul>

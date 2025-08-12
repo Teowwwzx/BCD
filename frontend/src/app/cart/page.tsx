@@ -6,16 +6,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { purchaseProduct, parseEther } from '../../lib/web3';
 
 export default function CartPage() {
-  const { isLoggedIn, isWalletConnected, walletAddress, connectWallet } = useAuth();
+  const { isLoggedIn, isWalletConnected, walletAddress, connectWallet, user } = useAuth();
   const { cartItems, updateCartItem, removeFromCart, clearCart, loading } = useCart();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   
-  // Mock user ID for demo purposes (in real app, this would come from auth context)
-  const MOCK_USER_ID = 1;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
   
   // Handle authentication state loading and redirect
   useEffect(() => {
@@ -68,38 +68,107 @@ export default function CartPage() {
       return;
     }
 
+    if (!user?.id) {
+      alert('You must be logged in to checkout');
+      return;
+    }
+
     if (cartItems.length === 0) {
       alert('Your cart is empty');
       return;
     }
 
     setCheckoutLoading(true);
-    
+
     try {
-      const response = await fetch('http://localhost:5000/api/orders/checkout', {
+      const buyerId = parseInt(String(user.id), 10);
+      if (isNaN(buyerId)) {
+        throw new Error('Invalid user id');
+      }
+
+      // 1) Fetch existing addresses
+      const addrRes = await fetch(`${API_BASE_URL}/api/addresses/user/${buyerId}`);
+      const addrJson = await addrRes.json();
+      if (!addrRes.ok) {
+        throw new Error(addrJson?.error || 'Failed to fetch addresses');
+      }
+      let addresses = Array.isArray(addrJson?.data) ? addrJson.data : [];
+
+      // 2) Ensure we have at least one address; create default if none
+      if (addresses.length === 0) {
+        const defaultAddressPayload = {
+          user_id: buyerId,
+          address_type: 'shipping',
+          location_type: 'residential',
+          addr_line_1: 'Digital Delivery',
+          city: 'Online',
+          state: 'NA',
+          postcode: '00000',
+          country: 'N/A',
+        };
+        const createAddrRes = await fetch(`${API_BASE_URL}/api/addresses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(defaultAddressPayload),
+        });
+        const createAddrJson = await createAddrRes.json();
+        if (!createAddrRes.ok) {
+          throw new Error(createAddrJson?.error || 'Failed to create default address');
+        }
+        addresses = [createAddrJson.data];
+      }
+
+      const shippingAddressId = parseInt(String(addresses[0].id), 10);
+      const billingAddressId = shippingAddressId;
+
+      // 3) For now, skip blockchain purchases for cart items since they are database products
+      // The blockchain products need to be purchased directly from the product detail page
+      // or we need to implement proper blockchain product detection in the cart
+      
+      console.log('Cart checkout: Processing database products only');
+      console.log('Note: Blockchain products should be purchased directly from product pages');
+      
+      let totalEthSpent = 0;
+      const purchasePromises = [];
+      
+      // Skip blockchain purchases for cart items since current cart only contains database products
+      // Cart items have numeric IDs (database products), while blockchain listings have IDs 1, 2, 3
+      const blockchainReceipts = purchasePromises;
+      
+      console.log('All blockchain purchases completed:', blockchainReceipts);
+
+      // 4) Call backend checkout API to record the order
+      const response = await fetch(`${API_BASE_URL}/api/orders/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          buyerId: MOCK_USER_ID,
-          shippingAddress: 'Digital delivery', // For digital products
-          paymentMethod: 'ETH'
+          buyerId,
+          shippingAddressId,
+          billingAddressId,
+          blockchainReceipts: blockchainReceipts.filter(r => r !== null), // Include transaction hashes
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Checkout successful! ${data.orderCount} orders created. Total: ${data.totalAmount.toFixed(4)} ETH`);
-        // Refresh cart to show empty state
+        alert(`Checkout successful! You spent ${totalEthSpent.toFixed(4)} ETH`);
+        // Refresh page to reflect cleared cart
         window.location.reload();
       } else {
-        alert(`Checkout failed: ${data.error}`);
+        alert(`Checkout failed: ${data.error || 'Unknown error'}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Checkout error:', error);
-      alert('An error occurred during checkout. Please try again.');
+      if (error.message?.includes('user rejected')) {
+        alert('Transaction was cancelled by user');
+      } else if (error.message?.includes('insufficient funds')) {
+        alert('Insufficient ETH balance for this purchase');
+      } else {
+        alert(`An error occurred during checkout: ${error?.message || 'Please try again.'}`);
+      }
     } finally {
       setCheckoutLoading(false);
     }

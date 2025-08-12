@@ -58,8 +58,39 @@ export const useProduct = (id: string | null) => {
                     throw new Error(result.error || 'Failed to parse product data.');
                 }
             } else if (id.startsWith('blockchain-')) {
-                // This is where you would add logic to fetch an on-chain listing by its ID
-                setError("On-chain product detail fetching is not yet implemented.");
+                // Fetch blockchain product details
+                const listingId = parseInt(id.replace('blockchain-', ''));
+                console.log(`HOOK (useProduct.ts): Fetching blockchain listing ${listingId}`);
+                
+                // Import getListing from web3.ts
+                const { getListing } = await import('../lib/web3');
+                const { ethers } = await import('ethers');
+                
+                const listing = await getListing(listingId);
+                
+                if (listing && listing.status === 0) { // Active listing
+                    const blockchainProduct = {
+                        id: listingId,
+                        name: listing.name,
+                        description: listing.description,
+                        category: { name: listing.category },
+                        price: parseFloat(ethers.formatEther(listing.price)),
+                        quantity: Number(listing.quantity),
+                        status: 'published',
+                        rating: 4.8, // Placeholder
+                        review: '',
+                        images: listing.imageUrl ? [{ id: 1, imageUrl: listing.imageUrl, altText: listing.name, sortOrder: 1 }] : [],
+                        isBlockchain: true,
+                        seller: {
+                            username: `${listing.seller.slice(0, 6)}...${listing.seller.slice(-4)}`
+                        },
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    setProduct(blockchainProduct);
+                } else {
+                    throw new Error('Blockchain listing not found or inactive');
+                }
             } else {
                 throw new Error("Invalid product ID format provided.");
             }

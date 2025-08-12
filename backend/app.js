@@ -34,17 +34,30 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Rate limiting
-const limiter = rateLimit({
+// Rate limiting - more lenient for development
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // Higher limit for dev
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
   legacyHeaders: false
 });
-app.use('/api/', limiter);
+
+// Separate, more lenient rate limiter for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'development' ? 50 : 20, // Allow more auth attempts in dev
+  message: {
+    error: 'Too many login attempts from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api/auth', authLimiter);
+app.use('/api/', generalLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -95,6 +108,7 @@ const cartRoutes = require('./routes/cart');
 const categoriesRoutes = require('./routes/categories');
 const notificationRoutes = require('./routes/notifications');
 const statsRoutes = require('./routes/stats');
+const addressesRoutes = require('./routes/addresses');
 
 console.log('Loading users routes...');
 app.use('/api/auth', authRoutes);
@@ -136,6 +150,10 @@ console.log('✓ Cart routes loaded');
 console.log('Loading notifications routes...');
 app.use('/api/notifications', notificationRoutes);
 console.log('✓ Notification routes loaded');
+
+console.log('Loading addresses routes...');
+app.use('/api/addresses', addressesRoutes);
+console.log('✓ Addresses routes loaded');
 
 console.log('Loading stats routes...');
 app.use('/api/stats', statsRoutes);
