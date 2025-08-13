@@ -1,37 +1,32 @@
-const { PrismaClient } = require('@prisma/client');
+// backend/prisma/seed.js
+
+const { PrismaClient, Prisma } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
 const prisma = new PrismaClient();
 
 async function main() {
   const saltRounds = 10;
-  const password = '123123123';
+  const password = '123123';
   const passwordHash = await bcrypt.hash(password, saltRounds);
   console.log('🌱 Starting database seeding...');
 
-  // Clear existing data
-  // The order of deletion is important to avoid foreign key constraint errors.
-  console.log('🗑️  Clearing existing data...');
-  await prisma.coupon_usage.deleteMany();
-  await prisma.product_reviews.deleteMany();
-  await prisma.orderItem.deleteMany();
-  await prisma.shipment.deleteMany();
-  await prisma.paymentTransaction.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.CartItem.deleteMany();
-  await prisma.wishlist.deleteMany();
-  await prisma.ProductImage.deleteMany();
-  await prisma.ProductAttribute.deleteMany();
-  await prisma.Product.deleteMany();
-  await prisma.Category.deleteMany();
-  await prisma.user_addresses.deleteMany();
-  await prisma.user_wallets.deleteMany();
-  await prisma.Notification.deleteMany();
-  await prisma.User.deleteMany();
-  await prisma.Coupon.deleteMany();
-  await prisma.SystemSetting.deleteMany();
-  await prisma.audit_log.deleteMany();
-  console.log('🗑️  Cleared existing data');
+  console.log('🗑️ Clearing database and resetting sequences...');
+  try {
+    // Use `model.dbName` to get the actual table name from the database
+    const tableNames = Prisma.dmmf.datamodel.models.map((model) => model.dbName || model.name);
+
+    // Build the TRUNCATE command with the correct table names
+    const truncateQuery = `TRUNCATE TABLE ${tableNames.map(name => `"${name}"`).join(', ')} RESTART IDENTITY CASCADE;`;
+
+    // Execute the raw query
+    await prisma.$executeRawUnsafe(truncateQuery);
+
+    console.log('🗑️ Database cleared successfully.');
+  } catch (error) {
+    console.error('Error clearing database:', error);
+    process.exit(1);
+  }
 
   // Create Admin Users
   const adminUsers = await Promise.all([
@@ -49,7 +44,7 @@ async function main() {
         status: 'active',
         user_wallets: {
           create: {
-            wallet_addr: '0x1234567890123456789012345678901234567890',
+            wallet_addr: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
             is_verified: true,
           }
         }
@@ -69,7 +64,7 @@ async function main() {
         status: 'active',
         user_wallets: {
           create: {
-            wallet_addr: '0x2345678901234567890123456789012345678901',
+            wallet_addr: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
             is_verified: true,
           }
         }
@@ -93,7 +88,7 @@ async function main() {
         status: 'active',
         user_wallets: {
           create: {
-            wallet_addr: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', // Vitalik Buterin's address for example
+            wallet_addr: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a', // Vitalik Buterin's address for example
             is_verified: true,
           }
         }
@@ -111,12 +106,6 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
         user_role: 'seller',
         status: 'active',
-        user_wallets: {
-          create: {
-            wallet_addr: '0x1dF62f291b2E969fB0849d99D9Ce41e2F137006e',
-            is_verified: true,
-          }
-        }
       }
     }),
     prisma.user.create({
@@ -133,7 +122,7 @@ async function main() {
         status: 'active',
         user_wallets: {
           create: {
-            wallet_addr: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+            wallet_addr: '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
             is_verified: true,
           }
         }
@@ -151,12 +140,6 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'buyer',
         status: 'active',
-        user_wallets: {
-          create: {
-            wallet_addr: '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1',
-            is_verified: true,
-          }
-        }
       }
     })
   ]);
@@ -240,7 +223,7 @@ async function main() {
   console.log('   Username: buyer | Wallet: 0x4567890123456789012345678901234567890123');
   console.log('   Username: buyer2 | Wallet: 0x5678901234567890123456789012345678901234');
   console.log('   Password: 123123123');
-  
+
 }
 
 main()

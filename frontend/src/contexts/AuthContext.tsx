@@ -1,193 +1,181 @@
+// src/contexts/AuthContext.tsx
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { User } from '../types';
-import { connectWallet as web3ConnectWallet } from '../lib/web3'; // Import wallet functions
+import { User } from '../types'; // Using the corrected types from index.ts
+import { connectWallet as web3ConnectWallet } from '../lib/web3';
 
+// Define the shape of the authentication credentials for the login function
+interface AuthCredentials {
+  email: string;
+  password?: string; // Password can be optional for wallet-only sign-in later
+}
 
-// 1. Define the new, unified context type
+// Define the context shape
 interface AuthContextType {
-  // User Session State
   user: User | null;
   token: string | null;
+  authIsLoading: boolean;
   isLoggedIn: boolean;
-  isLoading: boolean;
-  error: string | null;
-  
-  // Wallet State
-  walletAddress: string;
+  walletAddress: string | null;
   isWalletConnected: boolean;
-  isConnecting: boolean;
-  
-  // Functions
-  login: (email: string, password: string) => Promise<boolean>;
+  error: string | null;
+  login: (credentials: AuthCredentials) => Promise<boolean>;
   logout: () => void;
-  updateUser: (userData: Partial<User>) => void;
-  connectWallet: () => Promise<void>;
+  connectWallet: () => Promise<string | null>;
   clearError: () => void;
 }
 
+// Create the context
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
+// AuthProvider component
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // User Session State
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [authIsLoading, setAuthIsLoading] = useState(true); // True initially to check storage
   const [error, setError] = useState<string | null>(null);
-  
-  // 2. Add Wallet State
-  const [walletAddress, setWalletAddress] = useState('');
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  
   const router = useRouter();
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  // Rehydrate state from localStorage on initial load
+  // API base URL from environment variables
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+  // Effect to rehydrate state from localStorage on initial load
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const savedToken = localStorage.getItem('token');
-    const savedWalletAddress = localStorage.getItem('walletAddress');
+    try {
+      const savedToken = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      const savedWallet = localStorage.getItem('walletAddress');
 
-    if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
-      setToken(savedToken);
+      if (savedToken && savedUser) {
+        setToken(savedToken);
+        setUser(JSON.parse(savedUser));
+      }
+      if (savedWallet) {
+        setWalletAddress(savedWallet);
+      }
+    } catch (e) {
+      console.error("Failed to parse auth data from localStorage", e);
+      // Clear potentially corrupted storage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('walletAddress');
+    } finally {
+      setAuthIsLoading(false);
     }
-    if (savedWalletAddress) {
-        setWalletAddress(savedWalletAddress);
-        setIsWalletConnected(true);
-    }
-    setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
+  // Effect to handle wallet events (account or network changes)
+  useEffect(() => {
+    const ethereum = (window as any).ethereum;
+    if (ethereum) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length === 0) {
+          // MetaMask is locked or user has disconnected all accounts
+          console.log('Wallet disconnected.');
+          logout(); // Log out the user if their wallet disconnects
+        } else if (accounts[0] !== walletAddress) {
+          // User has switched accounts
+          console.log('Wallet account changed.');
+          logout(); // Force re-login on account switch for security
+          router.push('/auth');
+        }
+      };
+
+      ethereum.on('accountsChanged', handleAccountsChanged);
+      return () => {
+        ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      };
+    }
+  }, [walletAddress, router]); // Dependency array includes router now
+
+  const connectWallet = useCallback(async (): Promise<string | null> => {
+    setAuthIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const { address } = await web3ConnectWallet();
+      setWalletAddress(address);
+      localStorage.setItem('walletAddress', address);
+      return address;
+    } catch (err: any) {
+      setError(err.message || 'Failed to connect wallet.');
+      console.error(err);
+      return null;
+    } finally {
+      setAuthIsLoading(false);
+    }
+  }, []);
+
+  const login = async (credentials: AuthCredentials): Promise<boolean> => {
+    setAuthIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(credentials),
       });
+
       const data = await response.json();
-
-      if (data.success) {
-        const loggedInUser = data.data.user;
-        setUser(loggedInUser);
-        setToken(data.data.token);
-        localStorage.setItem('user', JSON.stringify(loggedInUser));
-        localStorage.setItem('token', data.data.token);
-
-        if (!isWalletConnected) await connectWallet();
-        if (loggedInUser.user_role === 'admin') router.push('/admin');
-        else router.push('/profile');
-        return true;
-      } else {
-        setError(data.error || 'Login failed');
-        return false;
+      if (!data.success) {
+        throw new Error(data.error || 'Login failed');
       }
-    } catch (err) {
-      setError('An error occurred during login.');
-      setIsLoading(false);
+
+      const { user: loggedInUser, token: authToken } = data.data;
+
+      // Connect wallet if not already connected
+      const connectedAddress = walletAddress || await connectWallet();
+      if (!connectedAddress) {
+          throw new Error("Wallet connection is required to log in.");
+      }
+
+      setUser(loggedInUser);
+      setToken(authToken);
+      localStorage.setItem('user', JSON.stringify(loggedInUser));
+      localStorage.setItem('token', authToken);
+      
+      router.push(loggedInUser.user_role === 'admin' ? '/admin' : '/profile');
+      return true;
+
+    } catch (err: any) {
+      setError(err.message);
       return false;
     } finally {
-      setIsLoading(false);
+      setAuthIsLoading(false);
     }
   };
 
-  // const register = async (userData: RegisterData) => {
-  //   setIsLoading(true);
-  //   setError(null);
-  //   try {
-  //     const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify(userData),
-  //     });
-  //     const data = await response.json();
-  //     if (data.success) {
-  //       // Automatically log in the user after successful registration
-  //       return await login(userData.email, userData.password);
-  //     } else {
-  //       setError(data.error || 'Registration failed');
-  //       setIsLoading(false);
-  //       return false;
-  //     }
-  //   } catch (err) {
-  //     setError('An error occurred during registration.');
-  //     setIsLoading(false);
-  //     return false;
-  //   }
-  // };
-
   const logout = () => {
-    // Clear both user session and wallet state
     setUser(null);
     setToken(null);
-    setWalletAddress('');
-    setIsWalletConnected(false);
+    setWalletAddress(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('walletAddress');
     router.push('/auth');
   };
 
-  const updateUser = (userData: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...userData };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
-  };
-
   const clearError = () => setError(null);
 
-  // 3. Add wallet connection logic
-  const connectWallet = useCallback(async () => {
-    setIsConnecting(true);
-    setError(null);
-    try {
-        const { address } = await web3ConnectWallet();
-        setWalletAddress(address);
-        setIsWalletConnected(true);
-        localStorage.setItem('walletAddress', address);
-    } catch (err: any) {
-        setError(err.message || 'Failed to connect wallet.');
-        console.error(err);
-    } finally {
-        setIsConnecting(false);
-    }
-  }, []);
+  const value: AuthContextType = {
+    user,
+    token,
+    authIsLoading,
+    isLoggedIn: !!token,
+    walletAddress,
+    isWalletConnected: !!walletAddress,
+    error,
+    login,
+    logout,
+    connectWallet,
+    clearError,
+  };
 
   return (
-    <AuthContext.Provider value={{
-      // User Session
-      user,
-      token,
-      isLoggedIn: !!token,
-      isLoading,
-      error,
-      login,
-      logout,
-      updateUser,
-      clearError,
-      // Wallet
-      walletAddress,
-      isWalletConnected,
-      isConnecting,
-      connectWallet,
-    }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!authIsLoading && children}
     </AuthContext.Provider>
   );
 };

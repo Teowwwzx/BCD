@@ -1,3 +1,47 @@
+// backend/routes/users.js
+/**
+ * =================================================================
+ * API DOCUMENTATION: /api/users
+ * =================================================================
+ *
+ * METHOD   | URL               | DESCRIPTION
+ * ---------|-------------------|----------------------------------
+ * POST     | /                 | Create a new user.
+ * GET      | /                 | Get all users (with filtering and pagination).
+ * GET      | /:id              | Get a single user by their ID.
+ * PUT      | /:id              | Update an existing user by their ID.
+ * DELETE   | /:id              | Delete a user by their ID.
+ *
+ * =================================================================
+ *
+ * REQUEST/RESPONSE FORMATS
+ *
+ * --- POST / ---
+ * Request Body:
+ * {
+ * "username": "newuser",
+ * "email": "new@example.com",
+ * "password": "password123",
+ * "f_name": "New",
+ * "l_name": "User",
+ * "user_role": "buyer"
+ * }
+ *
+ * --- PUT /:id ---
+ * Request Body:
+ * {
+ * "email": "updated@example.com",
+ * "status": "active"
+ * }
+ *
+ * --- GET / (Query Parameters) ---
+ * ?page=1
+ * ?limit=10
+ * ?role=seller
+ * ?status=active
+ * ?search=john
+ *
+ */
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
@@ -5,23 +49,91 @@ const router = express.Router();
 
 const prisma = new PrismaClient();
 
+// ----------------------------------------------------------------
+// 1. CREATE (POST /)
+// ----------------------------------------------------------------
+router.post('/', async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      password,
+      f_name,
+      l_name,
+      phone,
+      dob,
+      profileImageUrl,
+      user_role,
+      status
+    } = req.body;
 
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username, email, and password are required.'
+      });
+    }
 
-// Admin: Get all users with pagination and filtering
+    const existingUser = await prisma.user.findFirst({
+      where: { OR: [{ username }, { email }] }
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        error: 'User with this username or email already exists.'
+      });
+    }
+
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    const user = await prisma.user.create({
+      data: {
+        username,
+        email,
+        passwordHash,
+        f_name,
+        l_name,
+        phone,
+        dob: dob ? new Date(dob) : null,
+        profileImageUrl,
+        user_role: user_role || 'buyer',
+        status: status || 'pending_verification'
+      }
+    });
+
+    const { passwordHash: _, ...userResponse } = user;
+
+    res.status(201).json({
+      success: true,
+      data: userResponse
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error.'
+    });
+  }
+});
+
+// ----------------------------------------------------------------
+// 2. READ ALL (GET /)
+// ----------------------------------------------------------------
 router.get('/', async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      role, 
-      status, 
-      search 
+    const {
+      page = 1,
+      limit = 10,
+      role,
+      status,
+      search
     } = req.query;
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
-    // Build where clause
     const where = {};
     if (role) where.user_role = role;
     if (status) where.status = status;
@@ -34,7 +146,7 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    const [users, total] = await Promise.all([
+    const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         where,
         skip,
@@ -59,9 +171,7 @@ router.get('/', async (req, res) => {
             }
           }
         },
-        orderBy: {
-          createdAt: 'desc'
-        }
+        orderBy: { createdAt: 'desc' }
       }),
       prisma.user.count({ where })
     ]);
@@ -80,22 +190,20 @@ router.get('/', async (req, res) => {
     console.error('Error fetching users:', error);
     res.status(500).json({
       success: false,
-      error: 'Internal server error'
+      error: 'Internal server error.'
     });
   }
 });
 
-// Admin: Get user by ID
+// ----------------------------------------------------------------
+// 3. READ BY ID (GET /:id)
+// ----------------------------------------------------------------
 router.get('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = parseInt(id);
+    const userId = parseInt(req.params.id);
 
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid user ID'
-      });
+      return res.status(400).json({ success: false, error: 'Invalid user ID.' });
     }
 
     const user = await prisma.user.findUnique({
@@ -114,69 +222,41 @@ router.get('/:id', async (req, res) => {
         createdAt: true,
         updatedAt: true,
         products: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            status: true,
-            createdAt: true
-          },
+          select: { id: true, name: true, price: true, status: true, createdAt: true },
           take: 5,
           orderBy: { createdAt: 'desc' }
         },
         orders: {
-          select: {
-            id: true,
-            uuid: true,
-            order_status: true,
-            totalAmount: true,
-            createdAt: true
-          },
+          select: { id: true, uuid: true, order_status: true, totalAmount: true, createdAt: true },
           take: 5,
           orderBy: { createdAt: 'desc' }
         },
         _count: {
-          select: {
-            products: true,
-            orders: true,
-            cartItems: true,
-            product_reviews: true
-          }
+          select: { products: true, orders: true, cartItems: true, product_reviews: true }
         }
       }
     });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
+      return res.status(404).json({ success: false, error: 'User not found.' });
     }
 
-    res.json({
-      success: true,
-      data: user
-    });
+    res.json({ success: true, data: user });
   } catch (error) {
-    console.error('Error fetching user:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
+    console.error(`Error fetching user ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
-// Admin: Update user
+// ----------------------------------------------------------------
+// 4. UPDATE BY ID (PUT /:id)
+// ----------------------------------------------------------------
 router.put('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = parseInt(id);
+    const userId = parseInt(req.params.id);
 
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid user ID'
-      });
+      return res.status(400).json({ success: false, error: 'Invalid user ID.' });
     }
 
     const {
@@ -192,43 +272,6 @@ router.put('/:id', async (req, res) => {
       status
     } = req.body;
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!existingUser) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
-
-    // Check for duplicate username/email (excluding current user)
-    if (username || email) {
-      const duplicateUser = await prisma.user.findFirst({
-        where: {
-          AND: [
-            { id: { not: userId } },
-            {
-              OR: [
-                username ? { username } : {},
-                email ? { email } : {}
-              ].filter(obj => Object.keys(obj).length > 0)
-            }
-          ]
-        }
-      });
-
-      if (duplicateUser) {
-        return res.status(409).json({
-          success: false,
-          error: 'Username or email already exists'
-        });
-      }
-    }
-
-    // Prepare update data
     const updateData = {};
     if (username !== undefined) updateData.username = username;
     if (email !== undefined) updateData.email = email;
@@ -239,97 +282,74 @@ router.put('/:id', async (req, res) => {
     if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl;
     if (user_role !== undefined) updateData.user_role = user_role;
     if (status !== undefined) updateData.status = status;
-
-    // Hash new password if provided
+    
+    if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ success: false, error: 'No fields provided to update.' });
+    }
+    
     if (password) {
       const saltRounds = 10;
       updateData.passwordHash = await bcrypt.hash(password, saltRounds);
     }
 
-    // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData
     });
 
-    // Remove password hash from response
     const { passwordHash: _, ...userResponse } = updatedUser;
 
-    res.json({
-      success: true,
-      message: 'User updated successfully',
-      data: userResponse
-    });
+    res.json({ success: true, data: userResponse });
   } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
+    if (error.code === 'P2025') {
+        return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+    if (error.code === 'P2002') { // Unique constraint failed
+        return res.status(409).json({ success: false, error: 'Username or email already exists.'});
+    }
+    console.error(`Error updating user ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
-// Admin: Delete user
+// ----------------------------------------------------------------
+// 5. DELETE (DELETE by ID)
+// ----------------------------------------------------------------
 router.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = parseInt(id);
+    const userId = parseInt(req.params.id);
 
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid user ID'
-      });
+      return res.status(400).json({ success: false, error: 'Invalid user ID.' });
     }
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        _count: {
-          select: {
-            products: true,
-            orders: true,
-            cartItems: true
-          }
-        }
-      }
+      include: { _count: { select: { products: true, orders: true } } }
     });
 
-    if (!existingUser) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found.' });
     }
 
-    // Check if user has related data
-    const hasRelatedData = existingUser._count.products > 0 || 
-                          existingUser._count.orders > 0;
+    const hasRelatedData = user._count.products > 0 || user._count.orders > 0;
 
     if (hasRelatedData) {
       return res.status(400).json({
         success: false,
-        error: 'Cannot delete user with existing products or orders. Consider deactivating the user instead.',
-        relatedData: existingUser._count
+        error: 'Cannot delete user with existing products or orders. Consider deactivating the user instead.'
       });
     }
 
-    // Delete user (this will cascade delete cart items due to schema constraints)
-    await prisma.user.delete({
-      where: { id: userId }
-    });
+    await prisma.user.delete({ where: { id: userId } });
 
-    res.json({
-      success: true,
-      message: 'User deleted successfully'
-    });
+    res.json({ success: true, data: { message: 'User deleted successfully.' } });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
+    if (error.code === 'P2025') {
+        return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+    console.error(`Error deleting user ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 

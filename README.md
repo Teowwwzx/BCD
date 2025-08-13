@@ -10,8 +10,10 @@ BCD/
 │   ├── src/
 │   │   ├── app/       # Next.js App Router pages
 │   │   ├── components/ # Reusable React components
+│   │   ├── hooks/     # Custom React hooks
 │   │   ├── contexts/  # React Context providers
 │   │   └── lib/       # Helper functions and utilities
+│   │   ├── types/index.ts     # TypeScript type definitions
 │   └── ...
 ├── backend/           # Node.js/Express backend with Hardhat
 │   ├── prisma/
@@ -80,14 +82,21 @@ npm run hardhat:node
 ```
 This will start a local Ethereum network with 20 pre-funded accounts.
 
-#### 2. Start the Backend Server (Terminal 2)
+#### 2. Deploy the Smart Contracts (Terminal 2)
+```bash
+cd backend
+npm run hardhat:deploy
+```
+This will compile the smart contracts and deploy them to the local Hardhat network.
+
+#### 3. Start the Backend Server (Terminal 2)
 ```bash
 cd backend
 npm run dev
 ```
 Backend API will be available at http://localhost:5000
 
-#### 3. Start the Frontend (Terminal 3)
+#### 4. Start the Frontend (Terminal 3)
 ```bash
 cd frontend
 npm run dev

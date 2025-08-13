@@ -9,10 +9,16 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/uuid": "^10.0.0",
+    "apexcharts": "^5.3.3",
     "ethers": "^6.15.0",
+    "flatpickr": "^4.6.13",
+    "jsvectormap": "^1.7.0",
     "next": "15.4.5",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-apexcharts": "^1.7.0",
+    "react-dom": "19.1.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

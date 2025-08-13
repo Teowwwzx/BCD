@@ -3,9 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import type { DisplayProduct } from '../hooks/useProducts'; // Use our unified DisplayProduct type
+import type { DisplayProduct } from '../hooks/useProducts';
 
-// A simple component to render stars
 const StarRating = ({ rating }: { rating: number }) => {
   const fullStars = Math.floor(rating);
   const partialStar = rating % 1 > 0;
@@ -20,47 +19,75 @@ const StarRating = ({ rating }: { rating: number }) => {
   );
 };
 
-// This component now only needs the 'product' prop, which is of type DisplayProduct.
-// It is much simpler and more robust.
-export default function ProductCard({ product }: { product: DisplayProduct }) {
+// --- 1. Define the props interface for the component ---
+interface ProductCardProps {
+  product: DisplayProduct;
+  onAddToCart: (product: DisplayProduct) => void;
+  cartLoading: boolean;
+}
+
+// --- 2. Update the function to accept the new props ---
+export default function ProductCard({ product, onAddToCart, cartLoading }: ProductCardProps) {
   const imageSrc = product.image || '/placeholder.png';
 
+  // --- 3. Create a click handler for the button ---
+  // This stops the click from navigating via the parent <Link>
+  const handleAddToCartClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevents the link from navigating
+    e.stopPropagation(); // Stops the event from bubbling up
+    onAddToCart(product);
+  };
+
   return (
-    <Link
-      href={`/products/${product.id}`} // The unified ID works for both DB and blockchain products
-      className="block p-1 bg-gradient-to-br from-[#30214f] to-[#0d0221] hover:from-[#f0f] hover:to-[#0ff] group h-full"
-    >
-      <div className="bg-[#0d0221] p-4 h-full flex flex-col">
-        <div className="relative w-full aspect-square bg-black mb-4">
+    <div className="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden h-full transition-transform transform hover:-translate-y-1">
+      <Link href={`/products/${product.id}`} className="block">
+        <div className="relative w-full aspect-square bg-gray-200 dark:bg-gray-700">
           <Image
-            key={imageSrc} // Using a key helps React re-render the image if the src changes
+            key={imageSrc}
             src={imageSrc}
             alt={product.name}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            unoptimized // Useful for external URLs that aren't configured in next.config.js
+            className="object-cover"
+            unoptimized
           />
-          <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
-            <span className="px-2 py-1 bg-cyan-500 text-black text-xs font-bold">{product.category}</span>
-            {!product.inStock && <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold">OUT_OF_STOCK</span>}
-            {product.isBlockchain && <span className="px-2 py-1 bg-purple-500 text-white text-xs font-bold">ON-CHAIN</span>}
-          </div>
+          {product.isBlockchain && (
+            <span className="absolute top-2 right-2 bg-purple-600 text-white text-xs font-semibold px-2 py-1 rounded">
+              ON-CHAIN
+            </span>
+          )}
         </div>
-        <div className="flex-grow flex flex-col">
-          <h3 className="font-pixel text-lg text-white mb-2 truncate group-hover:text-[#00f5c3]">{product.name}</h3>
-          <p className="text-sm text-gray-400 mb-2 truncate">SELLER :: {product.seller}</p>
-          <div className="mb-4">
-            <StarRating rating={product.rating} />
-          </div>
-          <p className="text-xs text-gray-400 mb-4 flex-grow">{product.description ? `${product.description.substring(0, 100)}...` : ''}</p>
-          <div className="mt-auto flex justify-between items-center pt-4 border-t-2 border-dashed border-[#30214f]">
-            <p className="font-pixel text-2xl text-[#00f5c3]">${product.price.toFixed(2)}</p>
-            <div className="font-pixel text-sm text-black bg-[#00f5c3] px-3 py-2 group-hover:bg-white">
-              [ VIEW ]
-            </div>
-          </div>
+      </Link>
+      <div className="p-4 flex flex-col flex-grow">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 truncate">{product.name}</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+          Seller: <span className="font-medium text-gray-700 dark:text-gray-300">{product.seller}</span>
+        </p>
+        <div className="mb-4">
+          <StarRating rating={product.rating} />
+        </div>
+        
+        <div className="mt-auto pt-4 flex items-center justify-between">
+          <p className="text-xl font-bold text-gray-900 dark:text-white">${product.price.toFixed(2)}</p>
+          
+          {/* --- 4. Add the button with disabled logic and the new handler --- */}
+          {!product.isBlockchain ? (
+            <button
+              onClick={handleAddToCartClick}
+              disabled={cartLoading || !product.inStock}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {cartLoading ? '...' : 'Add to Cart'}
+            </button>
+          ) : (
+            <Link 
+              href={`/products/${product.id}`}
+              className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              View
+            </Link>
+          )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

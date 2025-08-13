@@ -2,60 +2,115 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import type { User } from '../types';
+import { useModal } from '../contexts/ModalContext';
+import { useToasts } from '../contexts/ToastContext';
+import type { User, UserRole, UserStatus } from '../types';
 
-/**
- * A custom hook to fetch a list of all users for the admin dashboard.
- * It will only fetch data if the current user is an admin.
- * @returns A list of users, loading state, error state, and a refetch function.
- */
+
+export type UserMutation = Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'> & { password?: string }>;
+
+
 export const useAdminUsers = () => {
-    const { user, token } = useAuth(); // Get the current user and their token
+    const { token } = useAuth();
+    const { showModal } = useModal();
+    const { addToast } = useToasts();
+
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     const fetchUsers = useCallback(async () => {
-        // Security Check: Only proceed if there is a token and the user is an admin.
-        if (!token || user?.user_role !== 'admin') {
-            setLoading(false);
-            // Optional: Set an error if a non-admin tries to use this hook
-            // setError('Access denied. Admin privileges required.');
-            return;
-        }
-
+        if (!token) return;
         setLoading(true);
         setError(null);
-
         try {
-            // Assumes a GET /api/users endpoint on your backend
-            const response = await fetch(`${API_BASE_URL}/api/users`, {
-                headers: {
-                    'Authorization': `Bearer ${token}` // Send the auth token for verification
-                }
+            const response = await fetch(`${API_BASE_URL}/users`, {
+                headers: { 'Authorization': `Bearer ${token}` },
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch users.');
-            }
-
             const result = await response.json();
-            if (result.success) {
-                setUsers(result.data);
-            } else {
-                throw new Error(result.error || 'An API error occurred.');
-            }
+            if (!result.success) throw new Error(result.error);
+            setUsers(result.data);
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    }, [user, token, API_BASE_URL]);
+    }, [token, API_BASE_URL]);
 
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
+    
 
-    return { users, loading, error, refetch: fetchUsers };
+    const createUser = async (userData: UserMutation): Promise<boolean> => {
+        if (!token) return false;
+        try {
+            const response = await fetch(`${API_BASE_URL}/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(userData),
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error);
+
+            addToast('User created successfully!', 'success');
+            await fetchUsers(); // Refresh the user list
+            return true;
+        } catch (err: any) {
+            addToast(err.message, 'error', 'Create Failed');
+            return false;
+        }
+    };
+
+    const updateUser = async (userId: string, userData: UserMutation): Promise<boolean> => {
+        if (!token) return false;
+        try {
+            const numericId = parseInt(userId, 10);
+
+            const response = await fetch(`${API_BASE_URL}/users/${numericId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(userData),
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error);
+
+            addToast('User updated successfully!', 'success');
+            await fetchUsers(); // Refresh the user list
+            return true;
+        } catch (err: any) {
+            addToast(err.message, 'error', 'Update Failed');
+            return false;
+        }
+    };
+
+    const deleteUser = async (userId: string, username: string) => {
+        if (!token) return;
+
+        showModal({
+            title: 'Confirm User Deletion',
+            message: `Are you sure you want to permanently delete the user "${username}"? This action cannot be undone.`,
+            confirmText: 'Delete User',
+            confirmVariant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const numericId = parseInt(userId, 10);
+                    const response = await fetch(`${API_BASE_URL}/users/${numericId}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+
+                    addToast(`User "${username}" deleted successfully.`, 'success');
+                    await fetchUsers(); // Refresh the list
+                } catch (err: any) {
+                    addToast(err.message, 'error', 'Deletion Failed');
+                }
+            },
+        });
+    };
+
+    return { users, loading, error, fetchUsers, createUser, updateUser, deleteUser };
 };

@@ -2,13 +2,10 @@
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-
-// --- 1. Import Providers ---
-// We now only need AuthProvider, which handles both wallet and user session.
 import { AuthProvider } from "../contexts/AuthContext"; 
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { CartProvider } from "../contexts/CartContext";
-// import { NotificationProvider } from "../contexts/NotificationContext"; // Keep this for when we build it
+import { NotificationProvider } from "../contexts/NotificationContext";
 import "./globals.css";
 
 const geistSans = Geist({

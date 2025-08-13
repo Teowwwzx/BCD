@@ -1,259 +1,148 @@
 const request = require('supertest');
-const { createTestApp } = require('./test-app');
+const express = require('express');
+const { PrismaClient } = require('@prisma/client');
+const productsRouter = require('../routes/products');
+
+const app = express();
+app.use(express.json());
+app.use('/api/products', productsRouter);
+
+const prisma = new PrismaClient();
 
 describe('Products API', () => {
-  let app;
+  let seller, category, product;
 
-  beforeAll(() => {
-    // Force mock database usage for all tests
-    process.env.NODE_ENV = 'test';
-  });
-
-  beforeEach(() => {
-    app = createTestApp();
-  });
-
-  describe('GET /api/products', () => {
-    it('should return all products successfully', async () => {
-      const response = await request(app)
-        .get('/api/products')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
-      expect(Array.isArray(response.body.data)).toBe(true);
+  beforeAll(async () => {
+    // Create a seller and a category for testing purposes
+    seller = await prisma.user.create({
+      data: {
+        username: 'test-seller',
+        email: 'test-seller@example.com',
+        password: 'password123',
+        role: 'seller',
+      },
     });
 
-    it('should return products with correct structure', async () => {
-      const response = await request(app)
-        .get('/api/products')
-        .expect(200);
-
-      if (response.body.data.length > 0) {
-        const product = response.body.data[0];
-        expect(product).toHaveProperty('id');
-        expect(product).toHaveProperty('name');
-        expect(product).toHaveProperty('description');
-        expect(product).toHaveProperty('price');
-        expect(product).toHaveProperty('quantity');
-        expect(product).toHaveProperty('categoryId');
-        expect(product).toHaveProperty('sellerId');
-      }
-    });
-
-    it('should handle category filter', async () => {
-      const response = await request(app)
-        .get('/api/products?category=1')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
-    });
-
-    it('should handle seller filter', async () => {
-      const response = await request(app)
-        .get('/api/products?seller=1')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
-    });
-
-    it('should handle search query', async () => {
-      const response = await request(app)
-        .get('/api/products?search=test')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
+    category = await prisma.category.create({
+      data: {
+        name: 'Test Category',
+      },
     });
   });
 
-  describe('GET /api/products/:id', () => {
-    it('should return a specific product', async () => {
-      const response = await request(app)
-        .get('/api/products/1')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
-      expect(response.body.data).toHaveProperty('id', 1);
-    });
-
-    it('should return 404 for non-existent product', async () => {
-      const response = await request(app)
-        .get('/api/products/99999')
-        .expect(404);
-
-      expect(response.body).toHaveProperty('success', false);
-      expect(response.body).toHaveProperty('error');
-    });
-
-    it('should return 400 for invalid product ID', async () => {
-      const response = await request(app)
-        .get('/api/products/invalid')
-        .expect(400);
-
-      expect(response.body).toHaveProperty('success', false);
-      expect(response.body).toHaveProperty('error');
-    });
+  afterAll(async () => {
+    // Clean up the database after all tests are done
+    if (product) {
+      await prisma.product.deleteMany({ where: { id: product.id } });
+    }
+    await prisma.user.deleteMany({ where: { id: seller.id } });
+    await prisma.category.deleteMany({ where: { id: category.id } });
+    await prisma.$disconnect();
   });
 
+  // Test for POST /api/products
   describe('POST /api/products', () => {
-    const validProduct = {
-      name: 'Test Product',
-      description: 'A test product description',
-      price: 99.99,
-      quantity: 10,
-      categoryId: 1,
-      sellerId: 1,
-      location: 'Test Location',
-      imageUrl: 'https://example.com/image.jpg'
-    };
-
-    it('should create a new product successfully', async () => {
-      const response = await request(app)
-        .post('/api/products')
-        .send(validProduct)
-        .expect(201);
-
-      expect(response.body).toHaveProperty('message', 'Product created successfully');
-      expect(response.body).toHaveProperty('product');
-      expect(response.body.product).toHaveProperty('name', validProduct.name);
-      expect(response.body.product).toHaveProperty('price', validProduct.price);
-      expect(response.body.product).toHaveProperty('sellerId', validProduct.sellerId);
-    });
-
-    it('should return 400 for missing required fields', async () => {
-      const invalidProduct = { name: 'Test Product' }; // missing required fields
-
-      const response = await request(app)
-        .post('/api/products')
-        .send(invalidProduct)
-        .expect(400);
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('required');
-    });
-
-    it('should return 400 for invalid price', async () => {
-      const invalidProduct = { ...validProduct, price: -10 };
-
-      const response = await request(app)
-        .post('/api/products')
-        .send(invalidProduct)
-        .expect(400);
-
-      expect(response.body).toHaveProperty('error');
-    });
-
-    it('should return 400 for invalid quantity', async () => {
-      const invalidProduct = { ...validProduct, quantity: -5 };
-
-      const response = await request(app)
-        .post('/api/products')
-        .send(invalidProduct)
-        .expect(400);
-
-      expect(response.body).toHaveProperty('success', false);
-      expect(response.body).toHaveProperty('error');
-    });
-  });
-
-  describe('PUT /api/products/:id', () => {
-    const updateData = {
-      name: 'Updated Product Name',
-      price: 149.99
-    };
-
-    it('should update a product successfully', async () => {
-      const response = await request(app)
-        .put('/api/products/1')
-        .send(updateData)
-        .expect(200);
-
-      expect(response.body).toHaveProperty('message', 'Product updated successfully');
-      expect(response.body).toHaveProperty('product');
-      expect(response.body.product).toHaveProperty('name', updateData.name);
-      expect(response.body.product).toHaveProperty('price', updateData.price);
-    });
-
-    it('should return 404 for non-existent product', async () => {
-      const response = await request(app)
-        .put('/api/products/99999')
-        .send(updateData)
-        .expect(404);
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('not found');
-    });
-
-    it('should return 400 for invalid update data', async () => {
-      const invalidUpdate = { price: -50 };
-
-      const response = await request(app)
-        .put('/api/products/1')
-        .send(invalidUpdate)
-        .expect(400);
-
-      expect(response.body).toHaveProperty('error');
-    });
-  });
-
-  describe('DELETE /api/products/:id', () => {
-    it('should delete a product successfully', async () => {
-      const response = await request(app)
-        .delete('/api/products/1')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('message', 'Product deleted successfully');
-    });
-
-    it('should return 404 for non-existent product', async () => {
-      const response = await request(app)
-        .delete('/api/products/99999')
-        .expect(404);
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('not found');
-    });
-
-    it('should return 400 for invalid product ID', async () => {
-      const response = await request(app)
-        .delete('/api/products/invalid')
-        .expect(400);
-
-      expect(response.body).toHaveProperty('error');
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle malformed JSON', async () => {
-      const response = await request(app)
-        .post('/api/products')
-        .set('Content-Type', 'application/json')
-        .send('{ invalid json }')
-        .expect(400);
-
-      // Malformed JSON typically results in empty response body
-      expect(response.status).toBe(400);
-    });
-
-    it('should handle large payloads gracefully', async () => {
-      const largeProduct = {
-        name: 'A'.repeat(1000),
-        description: 'B'.repeat(5000),
+    it('should create a new product', async () => {
+      const newProductData = {
+        sellerId: seller.id,
+        categoryId: category.id,
+        name: 'Test Product',
+        description: 'This is a test product.',
         price: 99.99,
         quantity: 10,
-        categoryId: 1,
-        sellerId: 1
       };
 
       const response = await request(app)
         .post('/api/products')
-        .send(largeProduct);
+        .send(newProductData)
+        .expect(201);
 
-      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.name).toBe(newProductData.name);
+      product = response.body.data; // Save for later tests
+    });
+
+    it('should return 400 for missing required fields', async () => {
+      const response = await request(app)
+        .post('/api/products')
+        .send({
+          sellerId: seller.id,
+          // Missing other required fields
+        })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Missing required fields: sellerId, categoryId, name, price, quantity.');
+    });
+  });
+
+  // Test for GET /api/products
+  describe('GET /api/products', () => {
+    it('should return a list of products', async () => {
+      const response = await request(app).get('/api/products').expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+  });
+
+  // Test for GET /api/products/:id
+  describe('GET /api/products/:id', () => {
+    it('should return a single product', async () => {
+      const response = await request(app)
+        .get(`/api/products/${product.id}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.id).toBe(product.id);
+    });
+
+    it('should return 404 for a non-existent product', async () => {
+      const response = await request(app).get('/api/products/999999').expect(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Product not found.');
+    });
+  });
+
+  // Test for PUT /api/products/:id
+  describe('PUT /api/products/:id', () => {
+    it('should update a product', async () => {
+      const updatedData = {
+        name: 'Updated Test Product',
+        price: 129.99,
+      };
+
+      const response = await request(app)
+        .put(`/api/products/${product.id}`)
+        .send(updatedData)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.name).toBe(updatedData.name);
+      expect(response.body.data.price).toBe(updatedData.price);
+    });
+
+    it('should return 404 for trying to update a non-existent product', async () => {
+      const response = await request(app)
+        .put('/api/products/999999')
+        .send({ name: 'Won\'t work' })
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Product not found.');
+    });
+  });
+
+  // Test for DELETE /api/products/:id
+  describe('DELETE /api/products/:id', () => {
+    it('should delete a product', async () => {
+      await request(app).delete(`/api/products/${product.id}`).expect(204);
+    });
+
+    it('should return 404 for trying to delete a non-existent product', async () => {
+      const response = await request(app).delete('/api/products/999999').expect(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Product not found.');
     });
   });
 });

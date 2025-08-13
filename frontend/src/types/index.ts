@@ -32,12 +32,30 @@ export enum OrderStatus {
     Refunded = 'refunded',
 }
 
+export enum PaymentStatus {
+    Pending = 'pending',
+    Paid = 'paid',
+    Failed = 'failed',
+    Refunded = 'refunded',
+    PartiallyRefunded = 'partially_refunded'
+}
+
+export enum ReviewStatus {
+    Pending = 'pending',
+    Approved = 'approved',
+    Rejected = 'rejected'
+}
+
+export enum AddressType {
+    Shipping = 'shipping',
+    Billing = 'billing'
+}
 
 // =================================================================
 // CORE MODELS - A precise reflection of our `schema.prisma`
 // =================================================================
 export interface User {
-    id: string;
+    id: number;
     username: string;
     email: string;
     f_name?: string | null;
@@ -52,7 +70,10 @@ export interface User {
 }
 export interface Address {
     id: number;
-    address_type: 'shipping' | 'billing';
+    user_id: number;
+    address_type: AddressType;
+    location_type: 'residential' | 'company';
+    is_default: boolean;
     addr_line_1: string;
     addr_line_2?: string | null;
     city: string;
@@ -62,27 +83,38 @@ export interface Address {
 }
 export interface Product {
     id: number;
+    sellerId: number;
+    categoryId?: number | null;
     name: string;
-    description: string;
-    category: { name: string };
-    price: number;
-    quantity: number;
-    status: string;
-    rating: number;
-    review: string;
-    images: ProductImage[];
-    isBlockchain: boolean;
+    description?: string | null;
+    short_desc?: string | null;
+    sku?: string | null;
+    price: number; // Prisma's Decimal is represented as number in JS/TS
+    stock_quantity: number;
+    min_order_quant?: number | null;
+    max_order_quant?: number | null;
+    status: ProductStatus;
+    isDigital: boolean;
+    createdAt: string;
+    updatedAt: string;
+
+    // Relational fields
     seller: {
         username: string;
     };
-    createdAt: string;
-    updatedAt: string;
+    category?: {
+        name: string;
+    } | null;
+    images?: ProductImage[];
+    product_reviews?: Review[];
 }
+
 export interface Category {
     id: number;
     name: string;
     description?: string | null;
     imageUrl?: string | null;
+    status: 'active' | 'inactive';
 }
 export interface ProductImage {
     id: number;
@@ -93,11 +125,21 @@ export interface ProductImage {
 export interface Order {
     id: number;
     uuid: string;
+    buyer_id: number;
+    shippingAddressId: number;
+    billingAddressId: number;
     order_status: OrderStatus;
-    payment_status: 'pending' | 'paid' | 'failed';
+    payment_status: PaymentStatus;
+    subtotal: number;
+    taxAmount?: number | null;
+    shippingAmount?: number | null;
+    discountAmount?: number | null;
     totalAmount: number;
+    tx_hash?: string | null;
     createdAt: string;
     updatedAt: string;
+
+    // Relational fields
     orderItems: OrderItem[];
     shippingAddress: Address;
     billingAddress: Address;
@@ -107,6 +149,9 @@ export interface Order {
 }
 export interface OrderItem {
     id: number;
+    orderId: number;
+    productId?: number | null;
+    seller_id: number;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
@@ -114,20 +159,26 @@ export interface OrderItem {
     product_image_url?: string | null;
     product?: {
         id: number;
-    };
+    } | null;
 }
 export interface Review {
     id: number;
+    product_id: number;
+    user_id: number;
     rating: number;
     title?: string | null;
     review_text?: string | null;
     is_verified_purchase: boolean;
-    status: 'pending' | 'approved' | 'rejected';
+    status: ReviewStatus;
+    helpful_count: number;
+    createdAt: string;
+    updatedAt: string;
+
+    // Relational fields
     user: {
         username: string;
         profileImageUrl?: string | null;
     };
-    createdAt: string;
 }
 
 
@@ -136,6 +187,8 @@ export interface Review {
 // =================================================================
 export interface CartItem {
     id: number;
+    userId: number;
+    productId: number;
     quantity: number;
     product: {
         id: number;
@@ -144,6 +197,7 @@ export interface CartItem {
         images?: ProductImage[];
     };
 }
+
 export interface DashboardStats {
     totalUsers: number;
     totalProducts: number;

@@ -1,5 +1,4 @@
-// frontend/src/app/page.tsx
-
+// src/app/page.tsx
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -8,31 +7,44 @@ import { useRouter } from 'next/navigation';
 // --- Core Principles In Action ---
 // 1. Import order: React/Next -> Hooks -> Components -> Types
 import { useAuth } from '../hooks/useAuth';
-import { useProducts, DisplayProduct } from '../hooks/useProducts'; // Use our powerful, unified hook
-import { useCart } from '../contexts/CartContext'; // Use the hook, not the context directly
+import { useProducts, DisplayProduct } from '../hooks/useProducts';
+import { useCart } from '../contexts/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
 
 export default function Home() {
   // --- A. Consume Hooks ---
-  // We rename destructured properties to be specific and avoid conflicts.
-  const { user, isLoggedIn, isLoading: isAuthLoading } = useAuth();
-  const { allProducts, loading: productsLoading, error, refetchProducts } = useProducts();
-  const { addToCart } = useCart();
+  const { user, isLoggedIn, authIsLoading } = useAuth();
+  const { allProducts, loading: productsLoading, error: productsError } = useProducts();
+  const { addToCart, loading: cartLoading } = useCart();
   const router = useRouter();
 
   // --- B. Manage UI-Specific State ---
-  // This is the page's ONLY responsibility besides rendering.
   const [showBlockchainProducts, setShowBlockchainProducts] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
 
+  // --- C. Guard Clause for Page Protection/Redirects ---
+  if (authIsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="font-mono text-lg text-white animate-pulse">AUTHENTICATING...</div>
+      </div>
+    );
+  }
 
+  if (isLoggedIn && user?.user_role === 'admin') {
+    router.push('/admin');
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="font-mono text-lg text-white animate-pulse">REDIRECTING TO ADMIN CONSOLE...</div>
+      </div>
+    );
+  }
 
   // --- D. Derived State & Helper Functions ---
-  // This logic is simple and directly related to filtering the UI.
   const filteredProducts = useMemo(() => {
     const sourceProducts = allProducts.filter(p => p.isBlockchain === showBlockchainProducts);
 
@@ -54,30 +66,11 @@ export default function Home() {
   }, [allProducts, showBlockchainProducts, searchTerm, selectedCategory, sortBy]);
 
   const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(allProducts.map(p => p.category).filter(Boolean))];
+    const sourceProducts = allProducts.filter(p => p.isBlockchain === showBlockchainProducts);
+    const uniqueCategories = [...new Set(sourceProducts.map(p => p.category).filter(Boolean))];
     return [{ label: 'All Categories', value: 'all' }, ...uniqueCategories.map(c => ({ label: c, value: c }))];
-  }, [allProducts]);
+  }, [allProducts, showBlockchainProducts]);
 
-    // --- C. Guard Clause for Page Protection/Redirects ---
-  // This block handles loading and role-based redirects before rendering the main content.
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen bg-[#0d0221] flex items-center justify-center">
-        <div className="font-pixel text-lg animate-pulse">AUTHENTICATING...</div>
-      </div>
-    );
-  }
-
-  if (isLoggedIn && user?.user_role === 'admin') {
-    router.push('/admin');
-    return ( // Return a loader while redirecting
-      <div className="min-h-screen bg-[#0d0221] flex items-center justify-center">
-        <div className="font-pixel text-lg animate-pulse">REDIRECTING_TO_ADMIN_CONSOLE...</div>
-      </div>
-    );
-  }
-
-  // The page passes the product to a handler, which calls the hook.
   const handleAddToCart = async (product: DisplayProduct) => {
     if (product.isBlockchain) {
       alert("On-chain assets must be purchased directly from their detail page.");
@@ -87,7 +80,7 @@ export default function Home() {
     try {
       const dbId = parseInt(product.id.replace('db-', ''));
       await addToCart(dbId, 1);
-      // We can later connect this to a notification context
+      // This could be replaced with a toast notification
       alert(`${product.name} added to cart!`);
     } catch (err) {
       console.error('Add to cart error:', err);
@@ -96,104 +89,83 @@ export default function Home() {
   };
 
   // --- E. Render JSX ---
-  // The JSX is clean and easy to read.
   return (
-    <div className="min-h-screen bg-[#0d0221] text-[#00f5c3] font-mono-pixel">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header />
-      <main className="container mx-auto px-4">
-        {/* Hero Section */}
-        <section className="text-center py-20 md:py-32">
-          <div className="relative inline-block mb-6">
-            <h1 className="font-pixel text-4xl md:text-6xl text-white relative z-10">DECENTRALIZED</h1>
-            <h1 className="font-pixel text-4xl md:text-6xl text-[#f0f] absolute top-0 left-0 z-0 -translate-x-0.5 -translate-y-0.5">DECENTRALIZED</h1>
-            <h1 className="font-pixel text-4xl md:text-6xl text-[#0ff] absolute top-0 left-0 z-0 translate-x-0.5 translate-y-0.5">DECENTRALIZED</h1>
-          </div>
-          <h2 className="font-pixel text-3xl md:text-5xl text-white mb-8">SUPPLY-CHAIN</h2>
-          <p className="text-xl md:text-2xl mb-10 max-w-3xl mx-auto text-gray-300">
-            TRANSPARENT_TRANSACTIONS :: DIRECT_TO_PRODUCER :: BIO-ENHANCED_GOODS
+      <main className="container mx-auto px-4 py-8">
+        <section className="text-center py-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            Decentralized Supply Chain Marketplace
+          </h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8">
+            Transparent transactions, direct-to-producer sourcing, and unparalleled security powered by the blockchain.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex justify-center space-x-4">
             <button
-              onClick={() => setShowBlockchainProducts(true)}
-              className="bg-[#00f5c3] text-black px-8 py-3 font-pixel text-sm hover:bg-white hover:text-black border-2 border-[#00f5c3] transition-colors"
+              onClick={() => setShowBlockchainProducts(!showBlockchainProducts)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-transform transform hover:scale-105"
             >
-              [ EXPLORE_CHAIN ]
-            </button>
-            <button
-              onClick={() => setShowBlockchainProducts(false)}
-              className="border-2 border-[#00f5c3] text-white px-8 py-3 font-pixel text-sm hover:bg-[#00f5c3] hover:text-black transition-colors"
-            >
-              [ BROWSE_OFF-CHAIN ]
+              {showBlockchainProducts ? 'View Off-Chain Products' : 'Explore On-Chain Assets'}
             </button>
           </div>
         </section>
 
-        {/* Filter & Product Section */}
-        <div className="p-1 bg-gradient-to-br from-[#f0f] to-[#0ff] mb-16">
-          <div className="bg-[#0d0221] p-4 md:p-6">
-            {/* Search and Filter Section */}
-            <section className="mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <input
-                  type="text"
-                  placeholder="SEARCH_QUERY..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full p-3 bg-black border-2 border-[#30214f] text-[#00f5c3] focus:border-[#00f5c3] focus:outline-none placeholder:text-gray-500"
-                />
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full p-3 bg-black border-2 border-[#30214f] text-[#00f5c3] focus:border-[#00f5c3] focus:outline-none"
-                >
-                  {categories.map(category => (
-                    <option key={category.value} value={category.value} className="bg-black text-[#00f5c3]">{category.label}</option>
-                  ))}
-                </select>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full p-3 bg-black border-2 border-[#30214f] text-[#00f5c3] focus:border-[#00f5c3] focus:outline-none"
-                >
-                  <option value="name">SORT: NAME</option>
-                  <option value="price-low">SORT: PRICE_ASC</option>
-                  <option value="price-high">SORT: PRICE_DESC</option>
-                  <option value="rating">SORT: RATING</option>
-                </select>
-              </div>
-            </section>
+        <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input
+              type="text"
+              placeholder="Search by name or seller..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
+              {categories.map(cat => (
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="price-low">Sort by Price: Low to High</option>
+              <option value="price-high">Sort by Price: High to Low</option>
+              <option value="rating">Sort by Rating</option>
+            </select>
+          </div>
+        </section>
 
-            {/* Products Section */}
-            <section>
-              <div className="flex justify-between items-center mb-6 border-b-2 border-dashed border-[#30214f] pb-4">
-                <h2 className="text-2xl font-pixel text-white">
-                  // {showBlockchainProducts ? 'ON-CHAIN_ASSETS' : 'DATABASE_LISTINGS'}
-                </h2>
-                <p className="text-gray-400">
-                  {filteredProducts.length} ASSETS_FOUND
-                </p>
-              </div>
-
-              {productsLoading ? (
-                <div className="text-center py-12">
-                  <p className="font-pixel text-lg animate-pulse">LOADING_RESOURCES...</p>
-                </div>
-              ) : error ? (
-                <div className="text-center py-12 border-2 border-red-500 p-4">
-                  <h3 className="text-lg font-pixel text-red-500 mb-2">[SYSTEM_ERROR]</h3>
-                  <p className="text-red-400 mb-4">{error}</p>
-                  <button onClick={refetchProducts} className="font-pixel text-sm bg-red-500 text-white px-4 py-2 hover:bg-red-400">[RETRY]</button>
-                </div>
+        <section>
+          {productsLoading ? (
+            <div className="text-center py-12 text-gray-500">Loading products...</div>
+          ) : productsError ? (
+            <div className="text-center py-12 text-red-500">Error: {productsError}</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredProducts.length > 0 ? (
+                filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={() => handleAddToCart(product)}
+                    cartLoading={cartLoading}
+                  />
+                ))
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
+                <div className="col-span-full text-center py-12 text-gray-500">
+                  <h3 className="text-xl font-semibold">No products found</h3>
+                  <p>Try adjusting your search or filter criteria.</p>
                 </div>
               )}
-            </section>
-          </div>
-        </div>
+            </div>
+          )}
+        </section>
       </main>
       <Footer />
     </div>

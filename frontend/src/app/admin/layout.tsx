@@ -1,21 +1,27 @@
 // frontend/src/app/admin/layout.tsx
-import AdminHeader from "../../components/AdminHeader";
-import Footer from "../../components/Footer";
+import Sidebar from "../../components/admin/AdminSidebar";
+import AdminHeader from "../../components/admin/AdminHeader";
+import { ModalProvider } from "../../contexts/ModalContext"; // Import the provider
+import { ToastProvider } from "../../contexts/ToastContext"; // Import the provider
 
-// This layout wraps all pages inside the /admin directory
-export default function AdminLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-            <AdminHeader />
-            <main className="py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {children}
+        <ModalProvider>
+            <ToastProvider>
+
+                <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+                    <Sidebar />
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <AdminHeader />
+                        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+                            <div className="container mx-auto px-6 py-8">
+                                {children}
+                            </div>
+                        </main>
+                    </div>
                 </div>
-            </main>
-        </div>
+            </ToastProvider>
+        </ModalProvider>
+
     );
 }
