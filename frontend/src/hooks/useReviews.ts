@@ -105,10 +105,10 @@ export const useReviews = (): UseReviewsReturn => {
     const queryString = params.toString();
     const url = `${API_BASE_URL}/reviews${queryString ? `?${queryString}` : ''}`;
     
-    const data = await handleApiCall<Review[]>(() => fetch(url));
+    const data = await handleApiCall<{reviews: Review[], pagination: any}>(() => fetch(url));
     
-    if (data) {
-      setReviews(data);
+    if (data && data.reviews) {
+      setReviews(data.reviews);
     }
     
     setLoading(false);

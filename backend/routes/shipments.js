@@ -1,24 +1,100 @@
+/**
+ * =================================================================
+ * API DOCUMENTATION: /api/shipments
+ * =================================================================
+ *
+ * METHOD   | URL               | DESCRIPTION
+ * ---------|-------------------|----------------------------------
+ * POST     | /                 | Create a new shipment for an order.
+ * GET      | /                 | Get all shipments (with filtering).
+ * GET      | /:id              | Get a single shipment by its ID.
+ * PUT      | /:id              | Update an existing shipment.
+ * DELETE   | /:id              | Delete a shipment.
+ *
+ * =================================================================
+ *
+ * REQUEST/RESPONSE FORMATS
+ *
+ * --- POST / ---
+ * Request Body:
+ * {
+ *   "orderId": 123,
+ *   "carrier": "FedEx",
+ *   "trackingNumber": "1234567890",
+ *   "shippingMethod": "express"
+ * }
+ *
+ * --- PUT /:id ---
+ * Request Body:
+ * {
+ *   "carrier": "UPS",
+ *   "trackingNumber": "0987654321",
+ *   "status": "in_transit"
+ * }
+ *
+ * --- GET / Query Parameters ---
+ * ?page=1&limit=10&status=in_transit&orderId=123
+ *
+ */
+
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// POST /api/shipments - Create a new shipment for an order
+// ----------------------------------------------------------------
+// CREATE - Create a new shipment for an order
+// ----------------------------------------------------------------
 router.post('/', async (req, res) => {
   try {
     const { orderId, carrier, trackingNumber, shippingMethod } = req.body;
-    const orderIdInt = parseInt(orderId);
 
-    if (!orderIdInt) {
-      return res.status(400).json({ success: false, error: 'Order ID is required' });
+    // Validate required fields
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'Order ID is required.' });
     }
 
-    // Check if shipment already exists for this order (shipment has a UNIQUE constraint on orderId)
+    const orderIdInt = parseInt(orderId);
+    if (isNaN(orderIdInt)) {
+      return res.status(400).json({ success: false, error: 'Invalid order ID format.' });
+    }
+
+    // Validate other required fields
+    if (!carrier || !trackingNumber) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Carrier and tracking number are required.' 
+      });
+    }
+
+    // Check if order exists
+    const order = await prisma.order.findUnique({
+      where: { id: orderIdInt }
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found.' });
+    }
+
+    // Check if shipment already exists for this order
     const existingShipment = await prisma.shipment.findUnique({
       where: { orderId: orderIdInt }
     });
     if (existingShipment) {
-      return res.status(409).json({ success: false, error: 'A shipment already exists for this order' });
+      return res.status(409).json({ 
+        success: false, 
+        error: 'A shipment already exists for this order.' 
+      });
+    }
+
+    // Validate shipping method if provided
+    if (shippingMethod) {
+      const validMethods = ['standard', 'express', 'overnight', 'economy'];
+      if (!validMethods.includes(shippingMethod)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid shipping method.' 
+        });
+      }
     }
 
     // Use a transaction to create the shipment and update the order's status
@@ -27,9 +103,20 @@ router.post('/', async (req, res) => {
         data: {
           orderId: orderIdInt,
           carrier,
-          trackingNumber: trackingNumber,
-          shipping_method: shippingMethod,
+          trackingNumber,
+          shipping_method: shippingMethod || 'standard',
           status: 'picked_up'
+        },
+        include: {
+          order: {
+            select: {
+              id: true,
+              order_status: true,
+              users: {
+                select: { id: true, username: true }
+              }
+            }
+          }
         }
       });
 
@@ -41,36 +128,79 @@ router.post('/', async (req, res) => {
       return shipment;
     });
 
-    res.status(201).json({ success: true, message: 'Shipment created successfully', data: newShipment });
+    res.status(201).json({ 
+      success: true, 
+      data: newShipment 
+    });
   } catch (error) {
-    console.error('Error creating shipment:', error);
-    if (error.code === 'P2003') { // Foreign key constraint failed
-        return res.status(404).json({ success: false, error: 'The specified Order ID does not exist.' });
+    if (error.code === 'P2003') {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'The specified Order ID does not exist.' 
+      });
     }
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    console.error('Error creating shipment:', error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
-// GET /api/shipments - Get all shipments with filtering
+// ----------------------------------------------------------------
+// READ ALL - Get all shipments with filtering and pagination
+// ----------------------------------------------------------------
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, status, orderId } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
 
+    // Validate pagination parameters
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    if (isNaN(pageInt) || isNaN(limitInt) || pageInt < 1 || limitInt < 1) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid pagination parameters.' 
+      });
+    }
+
+    const skip = (pageInt - 1) * limitInt;
+
+    // Build where clause for filtering
     const where = {};
-    if (status) where.status = status;
-    if (orderId) where.orderId = parseInt(orderId);
+    if (status) {
+      const validStatuses = ['picked_up', 'in_transit', 'delivered', 'returned'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid status value.' 
+        });
+      }
+      where.status = status;
+    }
+    if (orderId) {
+      const orderIdInt = parseInt(orderId);
+      if (isNaN(orderIdInt)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid order ID format.' 
+        });
+      }
+      where.orderId = orderIdInt;
+    }
 
+    // Fetch shipments and total count
     const [shipments, total] = await prisma.$transaction([
       prisma.shipment.findMany({
         where,
         skip,
-        take,
+        take: limitInt,
         include: {
           order: {
-            include: {
-              users: { select: { id: true, username: true } }
+            select: {
+              id: true,
+              order_status: true,
+              totalAmount: true,
+              users: { 
+                select: { id: true, username: true, email: true } 
+              }
             }
           }
         },
@@ -79,109 +209,277 @@ router.get('/', async (req, res) => {
       prisma.shipment.count({ where })
     ]);
 
-    res.json({
+    res.status(200).json({
       success: true,
-      data: shipments,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)),
-      },
+      data: {
+        shipments,
+        pagination: {
+          page: pageInt,
+          limit: limitInt,
+          total,
+          pages: Math.ceil(total / limitInt),
+          hasMore: skip + limitInt < total
+        }
+      }
     });
   } catch (error) {
     console.error('Error fetching shipments:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
 
-// GET /api/shipments/:id - Get a single shipment by its ID
+// ----------------------------------------------------------------
+// READ BY ID - Get a single shipment by its ID
+// ----------------------------------------------------------------
 router.get('/:id', async (req, res) => {
   try {
-    const shipmentId = parseInt(req.params.id);
+    const { id } = req.params;
+    const shipmentId = parseInt(id);
+
+    // Validate shipment ID
     if (isNaN(shipmentId)) {
-      return res.status(400).json({ success: false, error: 'Invalid shipment ID' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid shipment ID format.' 
+      });
     }
 
+    // Fetch shipment with related data
     const shipment = await prisma.shipment.findUnique({
       where: { id: shipmentId },
       include: {
-        order: { include: { users: true, orderItems: true } }
+        order: {
+          select: {
+            id: true,
+            order_status: true,
+            totalAmount: true,
+            createdAt: true,
+            users: {
+              select: { 
+                id: true, 
+                username: true, 
+                email: true,
+                profileImageUrl: true 
+              }
+            },
+            orderItems: {
+              select: {
+                id: true,
+                quantity: true,
+                price: true,
+                products: {
+                  select: {
+                    id: true,
+                    name: true,
+                    images: {
+                      select: {
+                        imageUrl: true,
+                        altText: true
+                      },
+                      take: 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     });
 
     if (!shipment) {
-      return res.status(404).json({ success: false, error: 'Shipment not found' });
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Shipment not found.' 
+      });
     }
-    res.json({ success: true, data: shipment });
+
+    res.status(200).json({ success: true, data: shipment });
   } catch (error) {
     console.error(`Error fetching shipment ${req.params.id}:`, error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
 
-// PUT /api/shipments/:id - Update a shipment's details (e.g., tracking number)
+// ----------------------------------------------------------------
+// UPDATE - Update an existing shipment
+// ----------------------------------------------------------------
 router.put('/:id', async (req, res) => {
   try {
-    const shipmentId = parseInt(req.params.id);
+    const { id } = req.params;
+    const { carrier, trackingNumber, status, shipping_method } = req.body;
+    const shipmentId = parseInt(id);
+
+    // Validate shipment ID
     if (isNaN(shipmentId)) {
-      return res.status(400).json({ success: false, error: 'Invalid shipment ID' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid shipment ID format.' 
+      });
     }
 
-    const { carrier, trackingNumber, status } = req.body;
-    
-    const dataToUpdate = {};
-    if (carrier !== undefined) dataToUpdate.carrier = carrier;
-    if (trackingNumber !== undefined) dataToUpdate.trackingNumber = trackingNumber;
-    if (status !== undefined) dataToUpdate.status = status;
-
-    const updatedShipment = await prisma.shipment.update({
-      where: { id: shipmentId },
-      data: dataToUpdate
+    // Check if shipment exists
+    const existingShipment = await prisma.shipment.findUnique({
+      where: { id: shipmentId }
     });
-    
-    // Also update the parent order's status if the shipment is delivered
-    if (status === 'delivered') {
-        await prisma.order.update({
-            where: { id: updatedShipment.orderId },
-            data: { order_status: 'delivered' }
-        });
+
+    if (!existingShipment) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Shipment not found.' 
+      });
     }
 
-    res.json({ success: true, message: 'Shipment updated successfully', data: updatedShipment });
+    // Build update data object
+    const dataToUpdate = {
+      updatedAt: new Date()
+    };
 
+    // Validate and add fields if provided
+    if (carrier !== undefined) {
+      if (!carrier.trim()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Carrier cannot be empty.' 
+        });
+      }
+      dataToUpdate.carrier = carrier;
+    }
+
+    if (trackingNumber !== undefined) {
+      if (!trackingNumber.trim()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Tracking number cannot be empty.' 
+        });
+      }
+      dataToUpdate.trackingNumber = trackingNumber;
+    }
+
+    if (status !== undefined) {
+      const validStatuses = ['picked_up', 'in_transit', 'delivered', 'returned'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid status value.' 
+        });
+      }
+      dataToUpdate.status = status;
+    }
+
+    if (shipping_method !== undefined) {
+      const validMethods = ['standard', 'express', 'overnight', 'economy'];
+      if (!validMethods.includes(shipping_method)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid shipping method.' 
+        });
+      }
+      dataToUpdate.shipping_method = shipping_method;
+    }
+
+    // Use transaction to update shipment and order status if needed
+    const updatedShipment = await prisma.$transaction(async (tx) => {
+      const shipment = await tx.shipment.update({
+        where: { id: shipmentId },
+        data: dataToUpdate,
+        include: {
+          order: {
+            select: {
+              id: true,
+              order_status: true,
+              users: {
+                select: { id: true, username: true }
+              }
+            }
+          }
+        }
+      });
+
+      // Update the parent order's status if the shipment is delivered
+      if (status === 'delivered') {
+        await tx.order.update({
+          where: { id: shipment.orderId },
+          data: { order_status: 'delivered' }
+        });
+      }
+
+      return shipment;
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      data: updatedShipment 
+    });
   } catch (error) {
     if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Shipment not found' });
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Shipment not found.' 
+      });
     }
     console.error(`Error updating shipment ${req.params.id}:`, error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
-// DELETE /api/shipments/:id - Delete a shipment
+// ----------------------------------------------------------------
+// DELETE - Delete a shipment
+// ----------------------------------------------------------------
 router.delete('/:id', async (req, res) => {
   try {
-    const shipmentId = parseInt(req.params.id);
+    const { id } = req.params;
+    const shipmentId = parseInt(id);
+
+    // Validate shipment ID
     if (isNaN(shipmentId)) {
-      return res.status(400).json({ success: false, error: 'Invalid shipment ID' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid shipment ID format.' 
+      });
     }
 
-    // Use Prisma to delete the shipment with the matching ID
-    await prisma.shipment.delete({
-      where: { id: shipmentId },
+    // Check if shipment exists
+    const existingShipment = await prisma.shipment.findUnique({
+      where: { id: shipmentId }
     });
 
-    res.json({ success: true, message: 'Shipment deleted successfully' });
+    if (!existingShipment) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Shipment not found.' 
+      });
+    }
+
+    // Use transaction to delete shipment and update order status
+    await prisma.$transaction(async (tx) => {
+      // Delete the shipment
+      await tx.shipment.delete({
+        where: { id: shipmentId }
+      });
+
+      // Update the order status back to confirmed
+      await tx.order.update({
+        where: { id: existingShipment.orderId },
+        data: { order_status: 'confirmed' }
+      });
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Shipment deleted successfully.' 
+    });
   } catch (error) {
-    // Handle the case where the shipment to be deleted is not found
     if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Shipment not found.' });
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Shipment not found.' 
+      });
     }
     console.error(`Error deleting shipment ${req.params.id}:`, error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 

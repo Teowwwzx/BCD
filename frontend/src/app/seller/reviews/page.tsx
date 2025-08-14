@@ -1,15 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useReviews } from '../../../hooks/useReviews';
 import { useSeller } from '../../../hooks/useSeller';
-import { UserRole } from '../../../types';
+import { UserRole, Review } from '../../../types';
 import { useRouter } from 'next/navigation';
 
-interface SellerReviewsPageProps {}
-
-const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
+const SReviews: React.FC = () => {
   // 1. State Hooks
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,7 +35,7 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
         router.push('/auth');
         return;
       }
-      if (user.user_role !== UserRole.SELLER && user.user_role !== UserRole.ADMIN) {
+      if (user.user_role !== UserRole.Seller && user.user_role !== UserRole.Admin) {
         router.push('/sell');
         return;
       }
@@ -45,46 +43,56 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
   }, [user, authIsLoading, router]);
 
   useEffect(() => {
-    if (user && (user.user_role === UserRole.SELLER || user.user_role === UserRole.ADMIN)) {
+    if (user && (user.user_role === UserRole.Seller || user.user_role === UserRole.Admin)) {
       fetchProducts();
     }
   }, [user, fetchProducts]);
 
   useEffect(() => {
     if (products.length > 0) {
-      // Fetch reviews for all seller's products
+      // Fetch reviews for all S's products
       const productIds = products.map(p => p.id);
       // For now, fetch all reviews and filter client-side
-      // In a real app, you'd want to modify the API to support seller-specific filtering
+      // In a real app, you'd want to modify the API to support S-specific filtering
       fetchReviews(undefined, undefined, filterStatus === 'all' ? undefined : filterStatus);
     }
   }, [products, filterStatus, fetchReviews]);
 
   // 4. Performance Hooks
-  const sellerProductIds = React.useMemo(() => {
+  const SProductIds = useMemo(() => {
     return new Set(products.map(p => p.id));
   }, [products]);
 
-  const filteredReviews = React.useMemo(() => {
-    return reviews.filter(review => {
-      // Only show reviews for seller's products
-      if (!sellerProductIds.has(review.product_id)) {
+  const filteredReviews = useMemo(() => {
+    return reviews.filter((review: Review) => {
+      // Only show reviews for S's products
+      if (!SProductIds.has(review.product_id)) {
         return false;
       }
 
       const matchesSearch = searchTerm === '' ||
         review.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         review.review_text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        review.users.username.toLowerCase().includes(searchTerm.toLowerCase());
+        review.user.username.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesProduct = selectedProduct === '' ||
         review.product_id.toString() === selectedProduct;
 
       return matchesSearch && matchesProduct;
     });
-  }, [reviews, sellerProductIds, searchTerm, selectedProduct]);
+  }, [reviews, SProductIds, searchTerm, selectedProduct]);
 
-  const handleDeleteReview = async () => {
+  
+
+  const productNameMap = useMemo(() => {
+    return new Map(products.map(product => [product.id, product.name]));
+  }, [products]);
+
+  const getProductName = useCallback((productId: number): string => {
+    return productNameMap.get(productId) || 'Unknown Product';
+  }, [productNameMap]);
+
+  const handleDeleteReview = useCallback(async (): Promise<void> => {
     if (!reviewToDelete || !user) return;
 
     setIsDeleting(true);
@@ -101,11 +109,11 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [reviewToDelete, user, deleteReview, fetchReviews]);
 
-  const renderStars = (rating: number) => {
+  const renderStars = useCallback((rating: number): JSX.Element => {
     return (
-      <div className="flex items-center">
+      <div className="flex items-center space-x-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <svg
             key={star}
@@ -118,13 +126,13 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
         ))}
-        <span className="ml-2 text-sm text-gray-600">({rating}/5)</span>
+        <span className="text-sm text-gray-600 ml-2">{rating}/5</span>
       </div>
     );
-  };
+  }, []);
 
-  const renderReviewCard = (review: any) => {
-    const product = products.find(p => p.id === review.product_id);
+  const renderReviewCard = useCallback((review: Review): JSX.Element => {
+    const productName = getProductName(review.product_id);
     
     return (
       <div key={review.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-4">
@@ -132,22 +140,22 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
           <div className="flex-1">
             <div className="flex items-center space-x-3 mb-3">
               <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                {review.users.profileImageUrl ? (
+                {review.user.profileImageUrl ? (
                   <img 
-                    src={review.users.profileImageUrl} 
-                    alt={review.users.username}
+                    src={review.user.profileImageUrl} 
+                    alt={review.user.username}
                     className="w-10 h-10 rounded-full object-cover"
                   />
                 ) : (
                   <span className="text-sm font-medium text-gray-600">
-                    {review.users.username.charAt(0).toUpperCase()}
+                    {review.user.username.charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
               <div>
-                <div className="font-medium text-gray-900">{review.users.username}</div>
+                <div className="font-medium text-gray-900">{review.user.username}</div>
                 <div className="text-sm text-gray-500">
-                  {new Date(review.created_at).toLocaleDateString()}
+                  {new Date(review.createdAt).toLocaleDateString()}
                 </div>
               </div>
               {review.is_verified_purchase && (
@@ -159,7 +167,7 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
             
             <div className="mb-3">
               <div className="text-sm text-gray-600 mb-1">
-                Product: <span className="font-medium">{product?.name || 'Unknown Product'}</span>
+                Product: <span className="font-medium">{productName}</span>
               </div>
               {renderStars(review.rating)}
             </div>
@@ -202,7 +210,7 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
         </div>
       </div>
     );
-  };
+  }, [getProductName, renderStars, setReviewToDelete, setShowDeleteModal]);
 
   if (authIsLoading || reviewsLoading) {
     return (
@@ -212,12 +220,12 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
     );
   }
 
-  if (!user || (user.user_role !== UserRole.SELLER && user.user_role !== UserRole.ADMIN)) {
+  if (!user || (user.user_role !== UserRole.Seller && user.user_role !== UserRole.Admin)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-          <p className="text-gray-600">You need to be a seller to access this page.</p>
+          <p className="text-gray-600">You need to be a Seller or Admin to access this page.</p>
         </div>
       </div>
     );
@@ -359,4 +367,4 @@ const SellerReviewsPage: React.FC<SellerReviewsPageProps> = () => {
   );
 };
 
-export default SellerReviewsPage;
+export default SReviews;

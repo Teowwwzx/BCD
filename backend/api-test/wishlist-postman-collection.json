@@ -1,0 +1,219 @@
+{
+  "info": {
+    "name": "Wishlist API",
+    "description": "Postman collection for testing the Wishlist API endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Add Item to Wishlist",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 1,\n  \"productId\": 2\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/wishlist",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist"]
+        }
+      }
+    },
+    {
+      "name": "Get All Wishlist Items",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/wishlist?limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Wishlist by User ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/wishlist?userId=1&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist"],
+          "query": [
+            {
+              "key": "userId",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Wishlist by Product ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/wishlist?productId=2&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist"],
+          "query": [
+            {
+              "key": "productId",
+              "value": "2"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Wishlist Item by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/wishlist/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist", "1"]
+        }
+      }
+    },
+    {
+      "name": "Update Wishlist Item",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": 3\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/wishlist/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist", "1"]
+        }
+      }
+    },
+    {
+      "name": "Remove Item from Wishlist",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/wishlist/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist", "1"]
+        }
+      }
+    },
+    {
+      "name": "Test - Add Duplicate Item (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 1,\n  \"productId\": 2\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/wishlist",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist"]
+        }
+      }
+    },
+    {
+      "name": "Test - Invalid User ID (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 999999,\n  \"productId\": 2\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/wishlist",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist"]
+        }
+      }
+    },
+    {
+      "name": "Test - Invalid Product ID (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 1,\n  \"productId\": 999999\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/wishlist",
+          "host": ["{{base_url}}"],
+          "path": ["api", "wishlist"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

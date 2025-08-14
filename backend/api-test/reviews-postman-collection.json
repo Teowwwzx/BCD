@@ -1,0 +1,203 @@
+{
+  "info": {
+    "name": "Reviews API",
+    "description": "Postman collection for testing the Reviews API endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Review",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 1,\n  \"productId\": 2,\n  \"rating\": 5,\n  \"title\": \"Excellent product!\",\n  \"review_text\": \"This product exceeded my expectations. Great quality and fast delivery.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reviews",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews"]
+        }
+      }
+    },
+    {
+      "name": "Get All Reviews",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/reviews?limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Reviews by Product ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/reviews?productId=2&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews"],
+          "query": [
+            {
+              "key": "productId",
+              "value": "2"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Reviews by User ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/reviews?userId=1&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews"],
+          "query": [
+            {
+              "key": "userId",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Reviews by Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/reviews?status=approved&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews"],
+          "query": [
+            {
+              "key": "status",
+              "value": "approved"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Review by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/reviews/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews", "1"]
+        }
+      }
+    },
+    {
+      "name": "Update Review",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rating\": 4,\n  \"title\": \"Updated review title\",\n  \"review_text\": \"Updated review text with more details.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reviews/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews", "1"]
+        }
+      }
+    },
+    {
+      "name": "Update Review Status (Admin)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"approved\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reviews/1/status",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews", "1", "status"]
+        }
+      }
+    },
+    {
+      "name": "Delete Review",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/reviews/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "reviews", "1"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

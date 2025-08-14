@@ -1,0 +1,303 @@
+{
+  "info": {
+    "name": "Shipments API",
+    "description": "Postman collection for testing the Shipments API endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Shipment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 1,\n  \"carrier\": \"FedEx\",\n  \"trackingNumber\": \"1234567890\",\n  \"shippingMethod\": \"express\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"]
+        }
+      }
+    },
+    {
+      "name": "Get All Shipments",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/shipments?page=1&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Shipments by Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/shipments?status=in_transit&page=1&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"],
+          "query": [
+            {
+              "key": "status",
+              "value": "in_transit"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Shipments by Order ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/shipments?orderId=1&page=1&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"],
+          "query": [
+            {
+              "key": "orderId",
+              "value": "1"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Shipment by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/shipments/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments", "1"]
+        }
+      }
+    },
+    {
+      "name": "Update Shipment",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"carrier\": \"UPS\",\n  \"trackingNumber\": \"0987654321\",\n  \"status\": \"in_transit\",\n  \"shipping_method\": \"standard\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments", "1"]
+        }
+      }
+    },
+    {
+      "name": "Update Shipment Status to Delivered",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"delivered\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments", "1"]
+        }
+      }
+    },
+    {
+      "name": "Delete Shipment",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/shipments/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments", "1"]
+        }
+      }
+    },
+    {
+      "name": "Test - Create Shipment with Standard Method",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 2,\n  \"carrier\": \"DHL\",\n  \"trackingNumber\": \"DHL123456789\",\n  \"shippingMethod\": \"standard\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"]
+        }
+      }
+    },
+    {
+      "name": "Test - Create Shipment with Overnight Method",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 3,\n  \"carrier\": \"USPS\",\n  \"trackingNumber\": \"USPS987654321\",\n  \"shippingMethod\": \"overnight\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"]
+        }
+      }
+    },
+    {
+      "name": "Test - Invalid Order ID (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 999999,\n  \"carrier\": \"FedEx\",\n  \"trackingNumber\": \"INVALID123\",\n  \"shippingMethod\": \"express\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"]
+        }
+      }
+    },
+    {
+      "name": "Test - Duplicate Shipment (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": 1,\n  \"carrier\": \"FedEx\",\n  \"trackingNumber\": \"DUPLICATE123\",\n  \"shippingMethod\": \"express\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments"]
+        }
+      }
+    },
+    {
+      "name": "Test - Invalid Shipping Method (Should Fail)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shipping_method\": \"invalid_method\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments", "1"]
+        }
+      }
+    },
+    {
+      "name": "Test - Invalid Status (Should Fail)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"invalid_status\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipments/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipments", "1"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}
