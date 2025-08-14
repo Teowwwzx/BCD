@@ -5,6 +5,9 @@ import { ethers } from 'ethers';
 import { getTotalListings, getListing } from '../lib/web3';
 import type { Product as DbProduct } from '../types'; // Rename for clarity
 
+// Use the environment variable for the API URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
 // =================================================================
 // UI-LEVEL "VIEW MODEL"
 // =================================================================
@@ -46,7 +49,7 @@ export const useProducts = () => {
 
         try {
             // --- 1. Fetch from Database (Off-Chain) ---
-            const dbResponse = await fetch(`http://localhost:5000/api/products`);
+            const dbResponse = await fetch(`${API_BASE_URL}/products`);
             if (!dbResponse.ok) throw new Error('Failed to fetch database products.');
             const dbResult = await dbResponse.json();
             
@@ -55,38 +58,49 @@ export const useProducts = () => {
                 name: p.name,
                 description: p.description || '',
                 price: Number(p.price),
-                quantity: p.quantity,
+                quantity: p.stock_quantity,
                 seller: p.seller.username,
                 // A real rating system would be more complex
                 rating: 4.5, // Placeholder rating for now
                 category: p.category?.name || 'Uncategorized',
                 image: p.images?.[0]?.imageUrl || '/placeholder.png',
-                inStock: p.quantity > 0,
+                inStock: p.stock_quantity > 0,
                 isBlockchain: false,
             }));
 
             // --- 2. Fetch from Blockchain (On-Chain) ---
-            const totalListings = Number(await getTotalListings());
-            const blockchainProducts: DisplayProduct[] = [];
-
-            for (let i = 1; i <= totalListings; i++) {
-                const listing = await getListing(i);
-                if (listing.status === 0) { // Enum: ListingStatus.Active
-                    blockchainProducts.push({
-                        id: `blockchain-${listing.listingId}`,
-                        name: listing.name,
-                        price: parseFloat(ethers.formatEther(listing.price)),
-                        quantity: Number(listing.quantity),
-                        seller: `${listing.seller.slice(0, 6)}...${listing.seller.slice(-4)}`,
-                        rating: 4.8, // Placeholder for blockchain items
-                        description: listing.description,
-                        category: listing.category,
-                        image: listing.imageUrl || '/placeholder.png',
-                        inStock: Number(listing.quantity) > 0,
-                        isBlockchain: true,
-                        blockchainData: listing, // Keep the raw data if needed
-                    });
+            let blockchainProducts: DisplayProduct[] = [];
+            
+            try {
+                const totalListings = Number(await getTotalListings());
+                
+                for (let i = 1; i <= totalListings; i++) {
+                    try {
+                        const listing = await getListing(i);
+                        if (listing.status === 0) { // Enum: ListingStatus.Active
+                            blockchainProducts.push({
+                                id: `blockchain-${listing.listingId}`,
+                                name: listing.name,
+                                price: parseFloat(ethers.formatEther(listing.price)),
+                                quantity: Number(listing.quantity),
+                                seller: `${listing.seller.slice(0, 6)}...${listing.seller.slice(-4)}`,
+                                rating: 4.8, // Placeholder for blockchain items
+                                description: listing.description,
+                                category: listing.category,
+                                image: listing.imageUrl || '/placeholder.png',
+                                inStock: Number(listing.quantity) > 0,
+                                isBlockchain: true,
+                                blockchainData: listing, // Keep the raw data if needed
+                            });
+                        }
+                    } catch (listingError) {
+                        console.warn(`Failed to fetch blockchain listing ${i}:`, listingError);
+                        // Continue with other listings
+                    }
                 }
+            } catch (blockchainError) {
+                console.warn('Failed to fetch blockchain products:', blockchainError);
+                // Continue with database products only
             }
 
             // --- 3. Combine and Set Final State ---

@@ -1,6 +1,8 @@
 // frontend/src/hooks/useProduct.ts
 
 import { useState, useEffect, useCallback } from 'react';
+import { ethers } from 'ethers';
+import { getListing } from '../lib/web3';
 import type { Product } from '../types'; // Import our main Product type
 
 // Use the environment variable for the API URL
@@ -47,18 +49,65 @@ export const useProduct = (id: string | null) => {
                 const result = await response.json();
 
                 if (result.success && result.data) {
-                    // 4. Ensure price is a number before setting state.
-                    const fetchedProduct = {
+                    // 4. Ensure price is a number and map to Product type
+                    const fetchedProduct: Product = {
                         ...result.data,
-                        price: Number(result.data.price)
+                        price: Number(result.data.price),
+                        stock_quantity: result.data.quantity || result.data.stock_quantity || 0
                     };
                     setProduct(fetchedProduct);
                 } else {
                     throw new Error(result.error || 'Failed to parse product data.');
                 }
             } else if (id.startsWith('blockchain-')) {
-                // This is where you would add logic to fetch an on-chain listing by its ID
-                setError("On-chain product detail fetching is not yet implemented.");
+                // Handle blockchain product fetching
+                const blockchainId = id.substring(10); // Remove 'blockchain-' prefix
+                console.log(`HOOK (useProduct.ts): Fetching blockchain product with ID: "${blockchainId}"`);
+                
+                try {
+                    const listing = await getListing(Number(blockchainId));
+                    
+                    if (listing.status === 0) { // Enum: ListingStatus.Active
+                        // Convert blockchain listing to Product format
+                        const blockchainProduct: Product = {
+                            id: Number(blockchainId),
+                            sellerId: 0, // Placeholder for blockchain products
+                            categoryId: null,
+                            name: listing.name,
+                            description: listing.description,
+                            short_desc: null,
+                            sku: null,
+                            price: parseFloat(ethers.formatEther(listing.price)),
+                            stock_quantity: Number(listing.quantity),
+                            min_order_quant: null,
+                            max_order_quant: null,
+                            status: 'published' as any,
+                            isDigital: false,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            seller: {
+                                username: `${listing.seller.slice(0, 6)}...${listing.seller.slice(-4)}`
+                            },
+                            category: {
+                                name: listing.category
+                            },
+                            images: listing.imageUrl ? [{
+                                id: 1,
+                                imageUrl: listing.imageUrl,
+                                altText: listing.name,
+                                sortOrder: 1
+                            }] : [],
+                            product_reviews: []
+                        };
+                        
+                        setProduct(blockchainProduct);
+                    } else {
+                        throw new Error('Blockchain product is not active or not found.');
+                    }
+                } catch (blockchainError: any) {
+                    console.error('Failed to fetch blockchain product:', blockchainError);
+                    throw new Error(`Failed to fetch blockchain product: ${blockchainError.message}`);
+                }
             } else {
                 throw new Error("Invalid product ID format provided.");
             }

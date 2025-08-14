@@ -1,0 +1,464 @@
+{
+  "info": {
+    "name": "BCD Marketplace - Addresses API",
+    "description": "Postman collection for testing the Addresses API endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "addressId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Address",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const responseJson = pm.response.json();",
+              "    if (responseJson.success && responseJson.data.id) {",
+              "        pm.collectionVariables.set('addressId', responseJson.data.id);",
+              "        console.log('Address ID saved:', responseJson.data.id);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": {{userId}},\n  \"address_type\": \"shipping\",\n  \"location_type\": \"home\",\n  \"addr_line_1\": \"123 Main Street\",\n  \"addr_line_2\": \"Apt 4B\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"postcode\": \"10001\",\n  \"country\": \"USA\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses"]
+        },
+        "description": "Create a new address for a user (automatically saves address ID)"
+      },
+      "response": []
+    },
+    {
+      "name": "Create Billing Address",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": {{userId}},\n  \"address_type\": \"billing\",\n  \"location_type\": \"office\",\n  \"addr_line_1\": \"456 Business Ave\",\n  \"city\": \"Boston\",\n  \"state\": \"MA\",\n  \"postcode\": \"02101\",\n  \"country\": \"USA\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses"]
+        },
+        "description": "Create a billing address for a user"
+      },
+      "response": []
+    },
+    {
+      "name": "Get All User Addresses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/user/{{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "user", "{{userId}}"]
+        },
+        "description": "Get all addresses for a specific user"
+      },
+      "response": []
+    },
+    {
+      "name": "Get User Addresses - Filtered by Type",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/user/{{userId}}?address_type=shipping",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "user", "{{userId}}"],
+          "query": [
+            {
+              "key": "address_type",
+              "value": "shipping"
+            }
+          ]
+        },
+        "description": "Get user addresses filtered by address type"
+      },
+      "response": []
+    },
+    {
+      "name": "Get User Addresses - Filtered by Location",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/user/{{userId}}?location_type=home",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "user", "{{userId}}"],
+          "query": [
+            {
+              "key": "location_type",
+              "value": "home"
+            }
+          ]
+        },
+        "description": "Get user addresses filtered by location type"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Address by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/{{addressId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "{{addressId}}"]
+        },
+        "description": "Get a single address by its ID (includes user information)"
+      },
+      "response": []
+    },
+    {
+      "name": "Update Address",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"addr_line_1\": \"789 Updated Street\",\n  \"city\": \"Los Angeles\",\n  \"state\": \"CA\",\n  \"postcode\": \"90210\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/{{addressId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "{{addressId}}"]
+        },
+        "description": "Update an existing address (partial update supported)"
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Address",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/{{addressId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "{{addressId}}"]
+        },
+        "description": "Delete an address by its ID"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Create Address Missing Fields",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": {{userId}},\n  \"addr_line_1\": \"Incomplete Address\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses"]
+        },
+        "description": "Test creating address with missing required fields (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Create Address Invalid User ID",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"invalid\",\n  \"address_type\": \"shipping\",\n  \"location_type\": \"home\",\n  \"addr_line_1\": \"123 Test Street\",\n  \"city\": \"Test City\",\n  \"state\": \"TS\",\n  \"postcode\": \"12345\",\n  \"country\": \"USA\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses"]
+        },
+        "description": "Test creating address with invalid user ID format (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Create Address Non-existent User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 99999,\n  \"address_type\": \"shipping\",\n  \"location_type\": \"home\",\n  \"addr_line_1\": \"123 Test Street\",\n  \"city\": \"Test City\",\n  \"state\": \"TS\",\n  \"postcode\": \"12345\",\n  \"country\": \"USA\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses"]
+        },
+        "description": "Test creating address for non-existent user (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Get Addresses Invalid User ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/user/invalid",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "user", "invalid"]
+        },
+        "description": "Test getting addresses with invalid user ID format (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Get Address Invalid ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/invalid",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "invalid"]
+        },
+        "description": "Test getting address with invalid ID format (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Get Non-existent Address",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/99999",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "99999"]
+        },
+        "description": "Test getting non-existent address (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Update Non-existent Address",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"city\": \"Updated City\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/99999",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "99999"]
+        },
+        "description": "Test updating non-existent address (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Update Address No Fields",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/{{addressId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "{{addressId}}"]
+        },
+        "description": "Test updating address with no fields provided (should fail)"
+      },
+      "response": []
+    },
+    {
+      "name": "Test - Delete Non-existent Address",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/addresses/99999",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "addresses", "99999"]
+        },
+        "description": "Test deleting non-existent address (should fail)"
+      },
+      "response": []
+    }
+  ]
+}

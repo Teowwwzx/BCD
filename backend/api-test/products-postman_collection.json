@@ -1,0 +1,165 @@
+{
+	"info": {
+		"_postman_id": "90bd9d02-8d69-47e9-98dd-b7e636a93783",
+		"name": "BCD Marketplace - Products API",
+		"description": "A collection for testing the BCD Marketplace Products API.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30856977"
+	},
+	"item": [
+		{
+			"name": "1. Create a New Product",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"Quantum Widget Pro\",\n    \"description\": \"The latest and greatest in widget technology, powered by quantum entanglement.\",\n    \"price\": 999.99,\n    \"quantity\": 50,\n    \"sku\": \"QWP-001\",\n    \"status\": \"published\",\n    \"sellerId\": 2,\n    \"categoryId\": 1\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5000/api/products",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"products"
+					]
+				},
+				"description": "Creates a new product in the database. Requires `sellerId` and `categoryId` to exist."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Read All Products",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/products",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"products"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1",
+							"disabled": true
+						},
+						{
+							"key": "limit",
+							"value": "5",
+							"disabled": true
+						},
+						{
+							"key": "sortBy",
+							"value": "price-asc",
+							"description": "Options: createdAt-desc, price-asc, price-desc, name",
+							"disabled": true
+						},
+						{
+							"key": "search",
+							"value": "widget",
+							"disabled": true
+						},
+						{
+							"key": "category",
+							"value": "Electronics",
+							"disabled": true
+						}
+					]
+				},
+				"description": "Retrieves a paginated and filterable list of all products."
+			},
+			"response": []
+		},
+		{
+			"name": "3. Read Product by ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/products/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"products",
+						"1"
+					]
+				},
+				"description": "Fetches a single product by its unique ID."
+			},
+			"response": []
+		},
+		{
+			"name": "4. Update Product by ID",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"price\": 949.99,\n    \"quantity\": 45,\n    \"status\": \"published\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5000/api/products/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"products",
+						"1"
+					]
+				},
+				"description": "Updates one or more fields of an existing product."
+			},
+			"response": []
+		},
+		{
+			"name": "5. Delete Product by ID",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/products/21",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"products",
+						"21"
+					]
+				},
+				"description": "Deletes a product by its ID. This will fail if the product is part of any active orders."
+			},
+			"response": []
+		}
+	]
+}

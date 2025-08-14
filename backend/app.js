@@ -90,6 +90,7 @@ const cartRoutes = require('./routes/cart');
 const categoriesRoutes = require('./routes/categories');
 const notificationRoutes = require('./routes/notifications');
 const statsRoutes = require('./routes/stats');
+const addressesRoutes = require('./routes/addresses');
 
 console.log('Loading users routes...');
 app.use('/api/auth', authRoutes);
@@ -136,6 +137,10 @@ console.log('Loading stats routes...');
 app.use('/api/stats', statsRoutes);
 console.log('✓ Stats routes loaded');
 
+console.log('Loading addresses routes...');
+app.use('/api/addresses', addressesRoutes);
+console.log('✓ Addresses routes loaded');
+
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -144,11 +149,17 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
+      auth: '/api/auth',
       users: '/api/users',
       products: '/api/products',
       orders: '/api/orders',
       shipments: '/api/shipments',
-      reviews: '/api/reviews'
+      reviews: '/api/reviews',
+      cart: '/api/cart',
+      categories: '/api/categories',
+      notifications: '/api/notifications',
+      stats: '/api/stats',
+      addresses: '/api/addresses'
     }
   });
 });
