@@ -13,11 +13,12 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
 
+
 export default function Home() {
   // --- A. Consume Hooks ---
   const { user, isLoggedIn, authIsLoading } = useAuth();
   const { allProducts, loading: productsLoading, error: productsError } = useProducts();
-  const { addToCart, loading: cartLoading } = useCart();
+  const { loading: cartLoading } = useCart();
   const router = useRouter();
 
   // --- B. Manage UI-Specific State ---
@@ -70,23 +71,7 @@ export default function Home() {
     const uniqueCategories = [...new Set(sourceProducts.map(p => p.category).filter(Boolean))];
     return [{ label: 'All Categories', value: 'all' }, ...uniqueCategories.map(c => ({ label: c, value: c }))];
   }, [allProducts, showBlockchainProducts]);
-
-  const handleAddToCart = async (product: DisplayProduct) => {
-    if (product.isBlockchain) {
-      alert("On-chain assets must be purchased directly from their detail page.");
-      router.push(`/products/${product.id}`);
-      return;
-    }
-    try {
-      const dbId = parseInt(product.id.replace('db-', ''));
-      await addToCart(dbId, 1);
-      // This could be replaced with a toast notification
-      alert(`${product.name} added to cart!`);
-    } catch (err) {
-      console.error('Add to cart error:', err);
-      alert('Failed to add item to cart.');
-    }
-  };
+  
 
   // --- E. Render JSX ---
   return (
@@ -153,8 +138,6 @@ export default function Home() {
                   <ProductCard
                     key={product.id}
                     product={product}
-                    onAddToCart={() => handleAddToCart(product)}
-                    cartLoading={cartLoading}
                   />
                 ))
               ) : (

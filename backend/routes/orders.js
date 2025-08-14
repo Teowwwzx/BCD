@@ -344,7 +344,7 @@ router.put('/:id', async (req, res) => {
     }
 
     // Build update data
-    const updateData = { updated_at: new Date() };
+    const updateData = { updatedAt: new Date() };
     if (order_status) updateData.order_status = order_status;
     if (payment_status) updateData.payment_status = payment_status;
 

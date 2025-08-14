@@ -10,6 +10,7 @@ interface ModalOptions {
   onConfirm: () => void;
   confirmText?: string;
   confirmVariant?: 'primary' | 'danger';
+  confirmButtonColor?: string;
 }
 
 interface ModalContextType {
@@ -44,9 +45,10 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const confirmButtonClass = modalOptions?.confirmVariant === 'danger'
-    ? 'bg-red-600 hover:bg-red-700'
-    : 'bg-blue-600 hover:bg-blue-700';
+  const confirmButtonClass = modalOptions?.confirmButtonColor || 
+    (modalOptions?.confirmVariant === 'danger'
+      ? 'bg-red-600 hover:bg-red-700'
+      : 'bg-blue-600 hover:bg-blue-700');
 
   return (
     <ModalContext.Provider value={{ showModal }}>

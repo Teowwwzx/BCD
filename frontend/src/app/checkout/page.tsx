@@ -1,7 +1,7 @@
 // src/app/checkout/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../contexts/CartContext';
@@ -68,19 +68,28 @@ const AddressForm = ({ onSave, onCancel }: { onSave: (address: Omit<Address, 'id
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { isLoggedIn, authIsLoading } = useAuth();
-    const { cartItems } = useCart();
-    const { addresses, createAddress, deleteAddress, loading: addressesLoading } = useAddresses();
+    const { user, isLoggedIn, authIsLoading, isWalletConnected, connectWallet } = useAuth();
+    const { cartItems, cartCount } = useCart();
+    const { addresses, createAddress, loading: addressesLoading, error: addressesError } = useAddresses();
 
     const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
     const [showForm, setShowForm] = useState(false);
 
-    if (authIsLoading) return <div>Loading...</div>;
+    // Set default address on load
+    useEffect(() => {
+        const defaultAddress = addresses.find(a => a.is_default);
+        if (defaultAddress) {
+            setSelectedAddressId(defaultAddress.id);
+        }
+    }, [addresses]);
+
+    // Page Guards
+    if (authIsLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
     if (!isLoggedIn) {
         router.push('/auth');
         return null;
     }
-    if (cartItems.length === 0 && !authIsLoading) { // Check cart only after auth is loaded
+    if (cartItems.length === 0 && !authIsLoading) {
         router.push('/products');
         return null;
     }
@@ -99,45 +108,72 @@ export default function CheckoutPage() {
             return;
         }
         alert(`Placing order to address ID: ${selectedAddressId}`);
-        router.push('/orders/success');
+
+        console.log({
+            userId: user?.id,
+            cart: cartItems,
+            shippingAddressId: selectedAddressId,
+            // billingAddressId: selectedAddressId, // Assuming same for now
+        });
+
+        router.push('/orders');
     };
+
+    const subtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
             <Header />
             <main className="container mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-6">Checkout</h1>
-                <div className="grid md:grid-cols-3 gap-8">
-                    <div className="md:col-span-2">
+                <div className="grid md:grid-cols-3 gap-8 items-start">
+                    <div className="md:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                         <h2 className="text-xl font-semibold mb-4">Shipping Address</h2>
                         {addressesLoading && <p>Loading addresses...</p>}
+                        {addressesError && <p className='text-red-500'>{addressesError}</p>}
+
                         <div className="space-y-4">
                             {addresses.map((address) => (
                                 <div key={address.id} onClick={() => setSelectedAddressId(address.id)}
-                                    className={`p-4 border rounded-lg cursor-pointer bg-white dark:bg-gray-800 ${selectedAddressId === address.id ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-200 dark:border-gray-700'}`}>
+                                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${selectedAddressId === address.id ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-200 dark:border-gray-700'}`}>
                                     <p className="font-semibold">{address.addr_line_1}</p>
                                     <p>{address.city}, {address.state} {address.postcode}</p>
-                                    <p>{address.country}</p>
                                 </div>
                             ))}
                         </div>
 
                         {!showForm ? (
-                            <button onClick={() => setShowForm(true)} className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded">
-                                Add New Address
+                            <button onClick={() => setShowForm(true)} className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                                + Add New Address
                             </button>
                         ) : (
-                            <div className="mt-4">
-                                <AddressForm onSave={handleSaveAddress} onCancel={() => setShowForm(false)} />
-                            </div>
+                            <AddressForm onSave={handleSaveAddress} onCancel={() => setShowForm(false)} />
                         )}
                     </div>
                     <div className="md:col-span-1">
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md sticky top-24">
                             <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
-                            {/* Summary details here */}
+                            <div className="space-y-2 border-b pb-4 mb-4 dark:border-gray-700">
+                                {cartItems.map(item => (
+                                    <div key={item.id} className="flex justify-between text-sm">
+                                        <span>{item.product.name} (x{item.quantity})</span>
+                                        <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between font-semibold">
+                                    <span>Subtotal</span>
+                                    <span>${subtotal.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-lg">
+                                    <span>Total</span>
+                                    <span>${subtotal.toFixed(2)}</span>
+                                </div>
+                            </div>
                             <button onClick={handlePlaceOrder} disabled={!selectedAddressId}
-                                className="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                                className="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-semibold">
                                 Place Order
                             </button>
                         </div>

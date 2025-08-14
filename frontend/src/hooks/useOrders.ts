@@ -27,7 +27,7 @@ export const useOrders = (userId: number | null): UseOrdersReturn => {
     setOrdersError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/orders/user/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/orders?buyer_id=${userId}`);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

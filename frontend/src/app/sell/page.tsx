@@ -77,44 +77,44 @@ const SellPage: React.FC = () => {
   };
 
   // 2. Effect Hooks
-  useEffect(() => {
-    if (!isLoggedIn) {
-      router.push('/auth');
-      return;
-    }
+  // useEffect(() => {
+  //   if (!isLoggedIn) {
+  //     router.push('/auth');
+  //     return;
+  //   }
     
-    // Redirect sellers to their dashboard
-    if (user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin) {
-      router.push('/seller');
-      return;
-    }
-  }, [isLoggedIn, user?.user_role, router]);
+  //   // Redirect sellers to their dashboard
+  //   if (user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin) {
+  //     router.push('/seller');
+  //     return;
+  //   }
+  // }, [isLoggedIn, user?.user_role, router]);
   
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecting to login...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (!isLoggedIn) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+  //         <p className="mt-4 text-gray-600">Redirecting to login...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Show loading while redirecting sellers
-  if (user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecting to seller dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+  //         <p className="mt-4 text-gray-600">Redirecting to seller dashboard...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Show buyer-to-seller conversion screen if user is a buyer
-  if (user?.user_role === UserRole.Buyer) {
+  // if (user?.user_role === UserRole.Buyer) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -195,7 +195,7 @@ const SellPage: React.FC = () => {
         <Footer />
       </div>
     );
-  }
+  // }
 
   // Show loading state
   if (productsIsLoading || salesIsLoading) {

@@ -139,11 +139,11 @@ export interface Order {
     createdAt: string;
     updatedAt: string;
 
-    // Relational fields
+    // Relations
     orderItems: OrderItem[];
     shippingAddress: Address;
     billingAddress: Address;
-    buyer: {
+    users: {
         username: string;
     };
 }
@@ -204,6 +204,10 @@ export interface DashboardStats {
     totalProducts: number;
     totalOrders: number;
     totalRevenue: number;
+    totalSalesVolume: number;
+    newUsersThisMonth: number;
+    pendingProducts: number;
+    openDisputes: number;
 }
 
 

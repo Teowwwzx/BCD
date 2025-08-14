@@ -75,12 +75,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (accounts.length === 0) {
           // MetaMask is locked or user has disconnected all accounts
           console.log('Wallet disconnected.');
-          logout(); // Log out the user if their wallet disconnects
+          setWalletAddress(null);
+          localStorage.removeItem('walletAddress');
         } else if (accounts[0] !== walletAddress) {
           // User has switched accounts
           console.log('Wallet account changed.');
-          logout(); // Force re-login on account switch for security
-          router.push('/auth');
+          setWalletAddress(accounts[0]);
+          localStorage.setItem('walletAddress', accounts[0]);
         }
       };
 
@@ -89,7 +90,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ethereum.removeListener('accountsChanged', handleAccountsChanged);
       };
     }
-  }, [walletAddress, router]); // Dependency array includes router now
+  }, [walletAddress]); // Removed router dependency
 
   const connectWallet = useCallback(async (): Promise<string | null> => {
     setAuthIsLoading(true);
@@ -125,10 +126,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const { user: loggedInUser, token: authToken } = data.data;
 
-      // Connect wallet if not already connected
-      const connectedAddress = walletAddress || await connectWallet();
-      if (!connectedAddress) {
-          throw new Error("Wallet connection is required to log in.");
+      // Check if user status is active
+      if (loggedInUser.status !== 'active') {
+        throw new Error('Account is not active. Please contact support.');
       }
 
       setUser(loggedInUser);
@@ -150,10 +150,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setUser(null);
     setToken(null);
-    setWalletAddress(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    localStorage.removeItem('walletAddress');
+    // Keep wallet connection intact - don't clear wallet address
     router.push('/auth');
   };
 

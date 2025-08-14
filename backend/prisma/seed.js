@@ -211,6 +211,76 @@ async function main() {
     console.error('❌ Error fetching or creating products from Fake Store API:', error);
   }
 
+  // Create Onchain Product (NFT)
+  let onchainProduct = null;
+  try {
+    onchainProduct = await prisma.product.create({
+      data: {
+        sellerId: regularUsers[0].id, // seller
+        categoryId: categories[0].id, // Electronics
+        name: 'Digital Art NFT - Cosmic Dreams',
+        description: 'A unique digital artwork representing cosmic dreams and stellar formations. This NFT is minted on the Ethereum blockchain and represents true ownership of this digital masterpiece.',
+        short_desc: 'Exclusive digital art NFT with cosmic theme',
+        sku: 'NFT-COSMIC-001',
+        price: '0.5', // 0.5 ETH
+        quantity: 1, // NFTs are typically unique
+        max_order_quant: 1,
+        status: 'published',
+        isDigital: true,
+        images: {
+          create: {
+            imageUrl: 'https://images.unsplash.com/photo-1446776877081-d282a0f896e2?w=500',
+            altText: 'Cosmic Dreams Digital Art NFT'
+          }
+        },
+        attributes: {
+          create: [
+            {
+              attr_name: 'contract_address',
+              attr_value: '0x1234567890123456789012345678901234567890'
+            },
+            {
+              attr_name: 'token_id',
+              attr_value: '42'
+            },
+            {
+              attr_name: 'blockchain_network',
+              attr_value: 'Ethereum'
+            },
+            {
+              attr_name: 'token_standard',
+              attr_value: 'ERC-721'
+            },
+            {
+              attr_name: 'metadata_uri',
+              attr_value: 'ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG'
+            },
+            {
+              attr_name: 'creator_royalty',
+              attr_value: '5%'
+            },
+            {
+              attr_name: 'mint_date',
+              attr_value: '2024-01-15'
+            },
+            {
+              attr_name: 'rarity',
+              attr_value: 'Legendary'
+            }
+          ]
+        }
+      }
+    });
+    
+    if (onchainProduct) {
+      createdFakeProducts.push(onchainProduct);
+    }
+    
+    console.log('🔗 Created onchain product (NFT):', onchainProduct ? 1 : 0);
+  } catch (error) {
+    console.error('❌ Error creating onchain product:', error);
+  }
+
   // Create User Addresses
   const addresses = await Promise.all([
     // Buyer addresses
@@ -562,6 +632,128 @@ async function main() {
 
   console.log('🔔 Created notifications:', notifications.length);
 
+  // Create Product Reviews
+  const reviews = [];
+  if (orderItems.length > 0 && createdFakeProducts.length > 0) {
+    // Review for delivered order items
+    const review1 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[0].id,
+        user_id: regularUsers[2].id, // buyer
+        order_item_id: orderItems[0].id,
+        rating: 5,
+        title: 'Excellent product!',
+        review_text: 'This product exceeded my expectations. Great quality and fast shipping. Highly recommended!',
+        is_verified_purchase: true,
+        status: 'approved'
+      }
+    });
+    reviews.push(review1);
+
+    const review2 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[1].id,
+        user_id: regularUsers[2].id, // buyer
+        order_item_id: orderItems[1].id,
+        rating: 4,
+        title: 'Good value for money',
+        review_text: 'Solid product with good build quality. Delivery was on time. Would buy again.',
+        is_verified_purchase: true,
+        status: 'approved'
+      }
+    });
+    reviews.push(review2);
+
+    const review3 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[3].id,
+        user_id: regularUsers[3].id, // buyer2
+        order_item_id: orderItems[3].id,
+        rating: 3,
+        title: 'Average product',
+        review_text: 'The product is okay but not outstanding. It does what it\'s supposed to do.',
+        is_verified_purchase: true,
+        status: 'approved'
+      }
+    });
+    reviews.push(review3);
+
+    // Non-verified review (user didn\'t purchase)
+    const review4 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[5].id,
+        user_id: regularUsers[3].id, // buyer2
+        rating: 2,
+        title: 'Not as described',
+        review_text: 'Product quality is below expectations. Would not recommend.',
+        is_verified_purchase: false,
+        status: 'pending'
+      }
+    });
+    reviews.push(review4);
+  }
+
+  console.log('⭐ Created product reviews:', reviews.length);
+
+  // Create Wishlist Items
+  const wishlistItems = [];
+  if (createdFakeProducts.length > 0) {
+    // Buyer wishlist items
+    const wishlist1 = await prisma.wishlist.create({
+      data: {
+        user_id: regularUsers[2].id, // buyer
+        product_id: createdFakeProducts[5].id
+      }
+    });
+    wishlistItems.push(wishlist1);
+
+    const wishlist2 = await prisma.wishlist.create({
+      data: {
+        user_id: regularUsers[2].id, // buyer
+        product_id: createdFakeProducts[6].id
+      }
+    });
+    wishlistItems.push(wishlist2);
+
+    const wishlist3 = await prisma.wishlist.create({
+      data: {
+        user_id: regularUsers[2].id, // buyer
+        product_id: createdFakeProducts[7].id
+      }
+    });
+    wishlistItems.push(wishlist3);
+
+    // Buyer2 wishlist items
+    const wishlist4 = await prisma.wishlist.create({
+      data: {
+        user_id: regularUsers[3].id, // buyer2
+        product_id: createdFakeProducts[8].id
+      }
+    });
+    wishlistItems.push(wishlist4);
+
+    const wishlist5 = await prisma.wishlist.create({
+      data: {
+        user_id: regularUsers[3].id, // buyer2
+        product_id: createdFakeProducts[9].id
+      }
+    });
+    wishlistItems.push(wishlist5);
+
+    // Add NFT to buyer's wishlist
+    if (onchainProduct) {
+      const wishlist6 = await prisma.wishlist.create({
+        data: {
+          user_id: regularUsers[2].id, // buyer
+          product_id: onchainProduct.id
+        }
+      });
+      wishlistItems.push(wishlist6);
+    }
+  }
+
+  console.log('💝 Created wishlist items:', wishlistItems.length);
+
   console.log('\n🎉 Database seeding completed successfully!');
   console.log('\n📊 Summary:');
   console.log(`   👥 Users: ${adminUsers.length + regularUsers.length} (${adminUsers.length} admins, ${regularUsers.length} regular)`);
@@ -573,6 +765,8 @@ async function main() {
   console.log(`   🚚 Shipments: ${shipments.length}`);
   console.log(`   💳 Payment Transactions: ${payments.length}`);
   console.log(`   🔔 Notifications: ${notifications.length}`);
+  console.log(`   ⭐ Product Reviews: ${reviews.length}`);
+  console.log(`   💝 Wishlist Items: ${wishlistItems.length}`);
   console.log('\n🔑 Admin Credentials:');
   console.log('   Username: admin | Wallet: 0x1234567890123456789012345678901234567890');
   console.log('   Username: admin2 | Wallet: 0x2345678901234567890123456789012345678901');

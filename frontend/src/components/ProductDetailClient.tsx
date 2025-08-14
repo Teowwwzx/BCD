@@ -6,28 +6,30 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useProduct } from '../hooks/useProduct';
 import { useAuth } from '../hooks/useAuth';
-import { useCart } from '../contexts/CartContext';      // THE FIX: Import the hook
+import { useCart } from '../contexts/CartContext';
+import { useRouter } from 'next/navigation'; // Import useRouter
+import type { Product } from '../types'; // Import Product type
+
 
 export default function ProductDetailClient({ id }: { id: string }) {
-    console.log('CLIENT COMPONENT (ProductDetailClient.tsx): Received prop id:', id);
-
     const { product, loading, error } = useProduct(id);
     const [quantity, setQuantity] = useState(1);
-
-    // --- THE FIX ---
-    // Call our custom hook directly. It's cleaner and safer.
     const { addToCart, loading: cartLoading } = useCart();
     const { isLoggedIn, user } = useAuth();
+    const router = useRouter();
+
 
     const handleAddToCart = async () => {
         if (!isLoggedIn) {
             alert("Please log in to add items to your cart.");
+            router.push('/auth');
             return;
         }
-        if (product && !product.isDigital) {
-            // The product ID from the hook is the raw database ID
-            await addToCart(product.id, quantity);
-            alert(`${product.name} added to cart!`);
+
+        if (product) {
+            // --- THIS IS THE FIX ---
+            // We now pass the product's stock_quantity as the third argument.
+            await addToCart(product.id, quantity, product.stock_quantity);
         }
     };
 

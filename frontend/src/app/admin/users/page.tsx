@@ -1,13 +1,46 @@
 // frontend/src/app/admin/users/page.tsx
+/**
+ * =================================================================
+ * ADMIN USER MANAGEMENT DASHBOARD
+ * =================================================================
+ * 
+ * This component implements a management-focused approach to user administration,
+ * moving beyond simple CRUD operations to provide comprehensive oversight tools.
+ * 
+ * KEY MANAGEMENT FEATURES:
+ * - User Statistics Dashboard: Real-time overview of user distribution
+ * - Bulk Status Management: Efficiently manage multiple users
+ * - Quick Status Actions: Inline activate/suspend controls
+ * - User Details Navigation: Deep-dive into individual user profiles
+ * - Advanced Filtering: Role and status-based user discovery
+ * 
+ * ADMIN ACTIONS AVAILABLE:
+ * ✅ View All Users: Searchable, filterable table with pagination
+ * ✅ View User Details: Navigate to detailed user profile pages
+ * ✅ Update User Status: Quick status changes (Active/Suspended/Inactive)
+ * ✅ Bulk Operations: Multi-select for batch status updates
+ * ✅ User Creation: Add new users to the platform
+ * ✅ User Modification: Edit user information and roles
+ * ✅ User Removal: Remove users from the platform
+ * 
+ * =================================================================
+ */
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAdminUsers, UserMutation } from '../../../hooks/useAdminUsers';
 import { User, UserRole, UserStatus } from '../../../types';
 import UserFormModal from '../../../components/admin/UserFormModal';
+import { useModal } from '../../../contexts/ModalContext';
 
 export default function AdminUsersPage() {
-  // 1. State Hooks
+  // --- A. Core Hooks ---
+  const router = useRouter();
+  const { users, loading, error, createUser, updateUser, deleteUser } = useAdminUsers();
+  const { showModal } = useModal();
+
+  // --- B. UI State Management ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,11 +48,9 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
-  // 2. Context Hooks
-  const { users, loading, error, createUser, updateUser, deleteUser } = useAdminUsers();
-
-  // 4. Performance Hooks - Filtered and paginated users
+  // --- C. Computed State & Data Processing ---
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,8 +72,203 @@ export default function AdminUsersPage() {
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
-  // Event Handlers
-  const handleAddNewUser = () => {
+  // User statistics for admin oversight
+  const userStats = useMemo(() => {
+    const stats = {
+      total: users.length,
+      active: users.filter(u => u.status === UserStatus.Active).length,
+      suspended: users.filter(u => u.status === UserStatus.Suspended).length,
+      pending: users.filter(u => u.status === UserStatus.PendingVerification).length,
+      sellers: users.filter(u => u.user_role === UserRole.Seller).length,
+      buyers: users.filter(u => u.user_role === UserRole.Buyer).length,
+    };
+    return stats;
+  }, [users]);
+
+  // --- D. Management Action Handlers ---
+  const handleViewUserDetails = (userId: string) => {
+    const user = users.find(u => u.id.toString() === userId);
+    if (!user) return;
+
+    const formatDate = (dateString: string) => {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const getStatusBadgeColor = (status: UserStatus) => {
+      switch (status) {
+        case UserStatus.Active: return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        case UserStatus.Suspended: return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        case UserStatus.PendingVerification: return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        case UserStatus.Inactive: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+        default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+      }
+    };
+
+    const getRoleBadgeColor = (role: UserRole) => {
+      switch (role) {
+        case UserRole.Admin: return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+        case UserRole.Seller: return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        case UserRole.Buyer: return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+      }
+    };
+
+    showModal({
+      title: `User Details - ${user.username}`,
+      message: (
+        <div className="space-y-6">
+          {/* User Avatar and Basic Info */}
+          <div className="flex items-center space-x-4">
+            <div className="h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center">
+              <span className="text-xl font-medium text-white">
+                {user.username.substring(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                {user.f_name && user.l_name ? `${user.f_name} ${user.l_name}` : user.username}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+              <div className="flex space-x-2 mt-2">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.user_role ? getRoleBadgeColor(user.user_role) : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                  {user.user_role === UserRole.Admin ? 'Admin' : user.user_role === UserRole.Seller ? 'Seller' : user.user_role === UserRole.Buyer ? 'Buyer' : 'Unknown'}
+                </span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(user.status)}`}>
+                  {user.status === UserStatus.Active ? 'Active' : user.status === UserStatus.Suspended ? 'Suspended' : user.status === UserStatus.Inactive ? 'Inactive' : 'Pending Verification'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* User Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">User ID</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-white font-mono">{user.id}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-white">{user.username}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-white">{user.email}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Full Name</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                  {user.f_name && user.l_name ? `${user.f_name} ${user.l_name}` : 'Not provided'}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Account Status</label>
+                <p className="mt-1">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(user.status)}`}>
+                    {user.status === UserStatus.Active ? 'Active' : user.status === UserStatus.Suspended ? 'Suspended' : user.status === UserStatus.Inactive ? 'Inactive' : 'Pending Verification'}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">User Role</label>
+                <p className="mt-1">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.user_role ? getRoleBadgeColor(user.user_role) : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                    {user.user_role === UserRole.Admin ? 'Admin' : user.user_role === UserRole.Seller ? 'Seller' : user.user_role === UserRole.Buyer ? 'Buyer' : 'Unknown'}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Account Created</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-white">{formatDate(user.createdAt)}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Updated</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-white">{formatDate(user.updatedAt)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Profile Image */}
+          {user.profileImageUrl && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profile Image</label>
+              <img
+                src={user.profileImageUrl}
+                alt={`${user.username}'s profile`}
+                className="h-24 w-24 rounded-lg object-cover border border-gray-300 dark:border-gray-600"
+              />
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Quick Actions</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleEditUser(user)}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit User
+              </button>
+              {user.status !== UserStatus.Active && (
+                <button
+                  onClick={() => handleUpdateUserStatus(user.id.toString(), UserStatus.Active)}
+                  className="inline-flex items-center px-3 py-1.5 border border-green-300 text-xs font-medium rounded text-green-700 bg-green-50 hover:bg-green-100"
+                >
+                  <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Activate
+                </button>
+              )}
+              {user.status !== UserStatus.Suspended && (
+                <button
+                  onClick={() => handleUpdateUserStatus(user.id.toString(), UserStatus.Suspended)}
+                  className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100"
+                >
+                  <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                  </svg>
+                  Suspend
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ),
+      onConfirm: () => { },
+      confirmText: 'Close',
+      confirmVariant: 'primary'
+    });
+  };
+
+  const handleUpdateUserStatus = async (userId: string, newStatus: UserStatus) => {
+    const success = await updateUser(userId, { status: newStatus });
+    if (success) {
+      // Status updated successfully
+    }
+  };
+
+  const handleBulkStatusUpdate = async (status: UserStatus) => {
+    const promises = Array.from(selectedUsers).map(userId =>
+      updateUser(userId, { status })
+    );
+    await Promise.all(promises);
+    setSelectedUsers(new Set());
+  };
+
+  const handleCreateUser = () => {
     setCurrentUser(null);
     setIsModalOpen(true);
   };
@@ -64,6 +290,24 @@ export default function AdminUsersPage() {
       setCurrentUser(null);
     }
     return success;
+  };
+
+  const handleSelectUser = (userId: string) => {
+    const newSelected = new Set(selectedUsers);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedUsers(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedUsers.size === paginatedUsers.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(paginatedUsers.map(u => u.id.toString())));
+    }
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,44 +383,117 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">User Management</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Manage user accounts, roles, and permissions
-          </p>
+      {/* Header with Statistics */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">User Management</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Monitor and manage user accounts across the marketplace
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            {selectedUsers.size > 0 && (
+              <div className="flex space-x-2">
+                <select
+                  onChange={(e) => handleBulkStatusUpdate(e.target.value as UserStatus)}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 dark:text-white"
+                  defaultValue=""
+                >
+                  <option value="" disabled>Bulk Status Update</option>
+                  <option value={UserStatus.Active}>Set Active</option>
+                  <option value={UserStatus.Suspended}>Suspend</option>
+                  <option value={UserStatus.Inactive}>Set Inactive</option>
+                </select>
+                <button
+                  onClick={() => setSelectedUsers(new Set())}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Clear ({selectedUsers.size})
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleCreateUser}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Create User
+            </button>
+          </div>
         </div>
-        <button
-          onClick={handleAddNewUser}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-        >
-          <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add New User
-        </button>
+
+        {/* User Statistics Dashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{userStats.total}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Total Users</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-green-600">{userStats.active}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Active</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-red-600">{userStats.suspended}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Suspended</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-yellow-600">{userStats.pending}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Pending</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-blue-600">{userStats.sellers}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Sellers</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-purple-600">{userStats.buyers}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Buyers</div>
+          </div>
+        </div>
       </div>
 
-      {/* Filters and Search */}
+      {/* User Discovery & Management Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">User Discovery & Filtering</h3>
+          {filteredUsers.length !== users.length && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setRoleFilter('all');
+                setStatusFilter('all');
+                setCurrentPage(1);
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Clear all filters
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Search Users
             </label>
-            <input
-              type="text"
-              id="search"
-              placeholder="Search by username, email, or name..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                id="search"
+                placeholder="Username, email, or name..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+              />
+              <svg className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </div>
           <div>
             <label htmlFor="role-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Filter by Role
+              User Role
             </label>
             <select
               id="role-filter"
@@ -184,15 +501,15 @@ export default function AdminUsersPage() {
               onChange={handleRoleFilterChange}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             >
-              <option value="all">All Roles</option>
-              {Object.values(UserRole).map(role => (
-                <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
-              ))}
+              <option value="all">All Roles ({users.length})</option>
+              <option value={UserRole.Admin}>Admins ({users.filter(u => u.user_role === UserRole.Admin).length})</option>
+              <option value={UserRole.Seller}>Sellers ({userStats.sellers})</option>
+              <option value={UserRole.Buyer}>Buyers ({userStats.buyers})</option>
             </select>
           </div>
           <div>
             <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Filter by Status
+              Account Status
             </label>
             <select
               id="status-filter"
@@ -200,15 +517,19 @@ export default function AdminUsersPage() {
               onChange={handleStatusFilterChange}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             >
-              <option value="all">All Statuses</option>
-              {Object.values(UserStatus).map(status => (
-                <option key={status} value={status}>{status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-              ))}
+              <option value="all">All Statuses ({users.length})</option>
+              <option value={UserStatus.Active}>Active ({userStats.active})</option>
+              <option value={UserStatus.Suspended}>Suspended ({userStats.suspended})</option>
+              <option value={UserStatus.PendingVerification}>Pending ({userStats.pending})</option>
+              <option value={UserStatus.Inactive}>Inactive ({users.filter(u => u.status === UserStatus.Inactive).length})</option>
             </select>
           </div>
-          <div className="flex items-end">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {paginatedUsers.length} of {filteredUsers.length} users
+          <div className="flex flex-col justify-end">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+              Results: {filteredUsers.length} users
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-500">
+              Page {currentPage} of {totalPages}
             </div>
           </div>
         </div>
@@ -233,6 +554,14 @@ export default function AdminUsersPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
+                  <th className="px-6 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.size === paginatedUsers.length && paginatedUsers.length > 0}
+                      onChange={handleSelectAll}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     User
                   </th>
@@ -246,16 +575,24 @@ export default function AdminUsersPage() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Created
+                    Joined
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
+                    Management Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {paginatedUsers.map((user: User) => (
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.has(user.id.toString())}
+                        onChange={() => handleSelectUser(user.id.toString())}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
@@ -282,14 +619,34 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeColor(user.user_role)}`}>
-                        {user.user_role?.charAt(0).toUpperCase() + (user.user_role?.slice(1) || '')}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.user_role ? getRoleBadgeColor(user.user_role) : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                        {user.user_role === UserRole.Admin ? 'Admin' : user.user_role === UserRole.Seller ? 'Seller' : user.user_role === UserRole.Buyer ? 'Buyer' : 'Unknown'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>
-                        {user.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>
+                          {user.status === UserStatus.Active ? 'Active' : user.status === UserStatus.Suspended ? 'Suspended' : user.status === UserStatus.Inactive ? 'Inactive' : 'Pending Verification'}
+                        </span>
+                        {user.status !== UserStatus.Active && (
+                          <button
+                            onClick={() => handleUpdateUserStatus(user.id.toString(), UserStatus.Active)}
+                            className="text-xs text-green-600 hover:text-green-800 font-medium"
+                            title="Activate User"
+                          >
+                            Activate
+                          </button>
+                        )}
+                        {user.status !== UserStatus.Suspended && (
+                          <button
+                            onClick={() => handleUpdateUserStatus(user.id.toString(), UserStatus.Suspended)}
+                            className="text-xs text-red-600 hover:text-red-800 font-medium"
+                            title="Suspend User"
+                          >
+                            Suspend
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(user.createdAt).toLocaleDateString()}
@@ -297,8 +654,18 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <button
-                          onClick={() => handleEditUser(user)}
+                          onClick={() => handleViewUserDetails(user.id.toString())}
                           className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-600 hover:text-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => handleEditUser(user)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-gray-600 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                         >
                           <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -312,7 +679,7 @@ export default function AdminUsersPage() {
                           <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                          Delete
+                          Remove
                         </button>
                       </div>
                     </td>
@@ -367,8 +734,8 @@ export default function AdminUsersPage() {
                             key={page}
                             onClick={() => setCurrentPage(page)}
                             className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === currentPage
-                                ? 'z-10 bg-blue-50 dark:bg-blue-900 border-blue-500 text-blue-600 dark:text-blue-300'
-                                : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
+                              ? 'z-10 bg-blue-50 dark:bg-blue-900 border-blue-500 text-blue-600 dark:text-blue-300'
+                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                               }`}
                           >
                             {page}

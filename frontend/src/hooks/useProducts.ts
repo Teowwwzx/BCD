@@ -90,7 +90,7 @@ export const useProducts = () => {
                                 image: listing.imageUrl || '/placeholder.png',
                                 inStock: Number(listing.quantity) > 0,
                                 isBlockchain: true,
-                                blockchainData: listing, // Keep the raw data if needed
+                                blockchainData: listing,
                             });
                         }
                     } catch (listingError) {

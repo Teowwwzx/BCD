@@ -55,7 +55,8 @@ const Header: React.FC = () => {
                                 <Link href="/products" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
                                     Browse
                                 </Link>
-                                <Link href="/auth" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
+                                <Link href="/sell" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
+
                                     Sell
                                 </Link>
                             </>
