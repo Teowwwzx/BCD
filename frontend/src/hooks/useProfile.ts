@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User, Order } from '../types';
 
+type ProfileUpdateData = Partial<Pick<User, 'f_name' | 'l_name' | 'phone' | 'dob'>>;
+
 
 // The custom hook
 export const useProfile = (userId: number | null) => {
@@ -47,6 +49,43 @@ export const useProfile = (userId: number | null) => {
         fetchData();
     }, [fetchData]);
 
-    // Return the state and a function to refetch the data manually if needed
-    return { profile, orders, profileLoading: loading, error, refetchData: fetchData };
+const updateProfile = async (updateData: ProfileUpdateData): Promise<User | null> => {
+        if (!userId) {
+            setError("User not found.");
+            return null;
+        }
+        
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData),
+            });
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || "Failed to update profile.");
+            }
+            
+            // Optimistically update the local state
+            setProfile(result.data);
+            return result.data;
+        } catch (err: any) {
+            setError(err.message);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { 
+        profile, 
+        orders, 
+        profileLoading: loading, 
+        error, 
+        refetchData: fetchData,
+        updateProfile, // Expose the new function
+    };
 };
