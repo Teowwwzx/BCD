@@ -7,7 +7,6 @@ import { useProfile } from '../../hooks/useProfile';
 import type { Order } from '../../types';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import Link from 'next/link';
 
 export default function ProfilePage() {
   const { user, authIsLoading, isLoggedIn } = useAuth();

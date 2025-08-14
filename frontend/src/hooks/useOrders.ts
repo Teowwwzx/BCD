@@ -1,41 +1,63 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Order } from '../types'; // Assuming 'Order' type is in your shared types file
+import type { Order } from '../types';
 
-export const useOrders = (userId: string | null) => {
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+interface UseOrdersReturn {
+  orders: Order[];
+  ordersIsLoading: boolean;
+  ordersError: string | null;
+  refetchOrders: () => Promise<void>;
+}
 
-    const fetchOrders = useCallback(async () => {
-        // We need a userId to fetch orders
-        if (!userId) {
-            setLoading(false);
-            return;
-        }
+export const useOrders = (userId: number | null): UseOrdersReturn => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersIsLoading, setOrdersIsLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-        setLoading(true);
-        setError(null);
+  const fetchOrders = useCallback(async (): Promise<void> => {
+    if (!userId) {
+      setOrdersIsLoading(false);
+      return;
+    }
 
-        try {
-            const response = await fetch(`${API_BASE_URL}/orders?buyerId=${userId}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch orders.');
-            }
-            const data = await response.json();
-            setOrders(data.data || []);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [userId, API_BASE_URL]);
+    setOrdersIsLoading(true);
+    setOrdersError(null);
 
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders/user/${userId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch orders`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setOrders(result.data || []);
+      } else {
+        throw new Error(result.error || 'Failed to fetch orders');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setOrdersError(errorMessage);
+      console.error('Error fetching orders:', error);
+    } finally {
+      setOrdersIsLoading(false);
+    }
+  }, [userId, API_BASE_URL]);
 
-    return { orders, loading, error, refetchOrders: fetchOrders };
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  return {
+    orders,
+    ordersIsLoading,
+    ordersError,
+    refetchOrders: fetchOrders
+  };
 };

@@ -1,113 +1,46 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useSeller } from '../../hooks/useSeller';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 
-interface Product {
-  id: number;
-  name: string;
-  price: string;
-  category: string;
-  stock: number;
-  status: 'active' | 'inactive' | 'out_of_stock';
-  sales: number;
-  revenue: string;
-  dateAdded: string;
-}
-
-interface Sale {
-  id: string;
-  productName: string;
-  buyer: string;
-  amount: string;
-  date: string;
-  status: 'pending' | 'completed' | 'refunded';
-}
-
 const SellPage: React.FC = () => {
-  const { isLoggedIn } = useWallet();
+  // 1. Context Hooks
+  const { isLoggedIn } = useAuth();
+  const {
+    // Data
+    products,
+    sales,
+    newProduct,
+    // UI State
+    activeTab,
+    showAddProduct,
+    // Loading and Error States
+    productsIsLoading,
+    salesIsLoading,
+    productsError,
+    salesError,
+    // Computed Values
+    totalRevenue,
+    totalSales,
+    activeProducts,
+    // State Setters
+    setNewProduct,
+    setActiveTab,
+    setShowAddProduct,
+    // Actions
+    handleAddProduct,
+    // Utility Functions
+    getStatusColor,
+    formatDate,
+  } = useSeller();
+  
   const router = useRouter();
-  
-  // All useState hooks must be declared before any early returns
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showAddProduct, setShowAddProduct] = useState(false);
-  
-  const [products] = useState<Product[]>([
-    {
-      id: 1,
-      name: "Premium Wireless Headphones",
-      price: "0.15 ETH",
-      category: "Electronics",
-      stock: 25,
-      status: 'active',
-      sales: 12,
-      revenue: "1.8 ETH",
-      dateAdded: "2024-01-10"
-    },
-    {
-      id: 2,
-      name: "Smart Fitness Watch",
-      price: "0.08 ETH",
-      category: "Electronics",
-      stock: 0,
-      status: 'out_of_stock',
-      sales: 8,
-      revenue: "0.64 ETH",
-      dateAdded: "2024-01-05"
-    },
-    {
-      id: 3,
-      name: "Organic Coffee Beans",
-      price: "0.02 ETH",
-      category: "Food & Beverage",
-      stock: 50,
-      status: 'active',
-      sales: 25,
-      revenue: "0.5 ETH",
-      dateAdded: "2023-12-20"
-    }
-  ]);
 
-  const [sales] = useState<Sale[]>([
-    {
-      id: "SALE-001",
-      productName: "Premium Wireless Headphones",
-      buyer: "0xabcd...1234",
-      amount: "0.15 ETH",
-      date: "2024-01-20",
-      status: 'completed'
-    },
-    {
-      id: "SALE-002",
-      productName: "Smart Fitness Watch",
-      buyer: "0xefgh...5678",
-      amount: "0.08 ETH",
-      date: "2024-01-19",
-      status: 'pending'
-    },
-    {
-      id: "SALE-003",
-      productName: "Organic Coffee Beans",
-      buyer: "0xijkl...9012",
-      amount: "0.02 ETH",
-      date: "2024-01-18",
-      status: 'completed'
-    }
-  ]);
-
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
-    stock: 0,
-    images: [] as File[]
-  });
-
-  // Redirect if not logged in - placed after all hooks
+  // 2. Effect Hooks
   useEffect(() => {
     if (!isLoggedIn) {
       router.push('/auth');
@@ -125,40 +58,39 @@ const SellPage: React.FC = () => {
     );
   }
 
-  const handleAddProduct = async () => {
-    // TODO: Implement add product logic
-    console.log('Adding new product:', newProduct);
-    alert('Product will be added to the blockchain marketplace');
-    setShowAddProduct(false);
-    setNewProduct({ name: '', description: '', price: '', category: '', stock: 0, images: [] });
-  };
+  // Show loading state
+  if (productsIsLoading || salesIsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading seller dashboard...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'out_of_stock': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'refunded': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const totalRevenue = products.reduce((sum, product) => {
-    return sum + parseFloat(product.revenue.replace(' ETH', ''));
-  }, 0);
-
-  const totalSales = products.reduce((sum, product) => sum + product.sales, 0);
-  const activeProducts = products.filter(p => p.status === 'active').length;
+  // Show error state
+  if (productsError || salesError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Dashboard</h2>
+            <p className="text-red-600">
+              {productsError || salesError}
+            </p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -488,6 +420,7 @@ const SellPage: React.FC = () => {
                     onChange={(e) => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0"
+                    min="0"
                   />
                 </div>
                 
