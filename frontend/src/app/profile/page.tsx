@@ -4,28 +4,25 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useProfile } from '../../hooks/useProfile';
-import { useOrders } from '../../hooks/useOrders';
 import type { Order } from '../../types';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import Link from 'next/link';
 
 export default function ProfilePage() {
-  const { user, isLoading: authLoading, isLoggedIn } = useAuth();
+  const { user, authIsLoading, isLoggedIn } = useAuth();
   const router = useRouter();
 
-  const userId = user ? user.id : null;
-  const { profile, profileLoading } = useProfile(userId);
-  const { orders, loading: ordersLoading, error: ordersError } = useOrders(userId);
+  const { profile, orders, profileLoading, error } = useProfile(user?.id || null);
 
   
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authIsLoading && !user) {
       router.push('/auth');
     }
-  }, [authLoading, user, router]);
+  }, [authIsLoading, user, router]);
   
-  if (authLoading || profileLoading) {
+  if (authIsLoading || profileLoading) {
     return (
       <div className="min-h-screen bg-[#0d0221] flex items-center justify-center">
         <div className="font-pixel text-lg text-white animate-pulse">LOADING_USER_DATA...</div>
@@ -37,10 +34,11 @@ export default function ProfilePage() {
   if (!user) {
     return null;
   }
-  if (ordersError) {
+  
+  if (error) {
     return (
       <div className="min-h-screen bg-[#0d0221] flex items-center justify-center">
-        <div className="font-pixel text-lg text-white animate-pulse">ERROR_LOADING_ORDERS: {ordersError}</div>
+        <div className="font-pixel text-lg text-white animate-pulse">ERROR_LOADING_DATA: {error}</div>
       </div>
     );
   }
@@ -125,8 +123,8 @@ export default function ProfilePage() {
             <div>
               <h2 className="font-pixel text-xl text-white mb-6">// ORDER_HISTORY</h2>
               <div className="space-y-4">
-                {/*_ Using the 'orders' array from your useOrders hook */}
-                {ordersLoading ? (
+                {/*_ Using the 'orders' array from useProfile hook */}
+                {profileLoading ? (
                   <p className="animate-pulse">LOADING_ORDERS...</p>
                 ) : orders.length > 0 ? orders.map((order: Order) => (
                   <div key={order.id} className="p-4 border-2 border-[#30214f]">
@@ -136,7 +134,7 @@ export default function ProfilePage() {
                         <p className="text-sm text-gray-400">DATE: {formatDate(order.createdAt)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-pixel text-[#00f5c3]">${(order.totalAmount).toFixed(2)}</p>
+                        <p className="text-lg font-pixel text-[#00f5c3]">${(Number(order.totalAmount) || 0).toFixed(2)}</p>
                         <p className="text-xs text-yellow-400">{order.order_status?.toUpperCase()}</p>
                       </div>
                     </div>

@@ -1,40 +1,36 @@
 /**
- * Orders API Routes
- * 
- * This module handles order management with mandatory shipment details and separated payment processing.
- * Orders are created first, then payment is processed separately to handle payment failures gracefully.
- * 
- * Key Features:
- * - Orders MUST have shipment details created automatically
- * - Orders can be created even if payment fails
- * - Stock is reserved when order is created
- * - Payment processing is separate from order creation
- * 
- * Endpoints:
- * POST /api/orders/checkout - Create order with shipment details (payment pending)
- * POST /api/orders/:id/payment - Process payment for existing order
- * GET /api/orders - Get all orders with filtering
- * GET /api/orders/:id - Get specific order details
- * PUT /api/orders/:id/status - Update order status
- * DELETE /api/orders/:id - Cancel/delete order
- * 
- * Example checkout request:
+ * =================================================================
+ * API DOCUMENTATION: /api/orders
+ * =================================================================
+ *
+ * METHOD   | URL               | DESCRIPTION
+ * ---------|-------------------|----------------------------------
+ * POST     | /                 | Create a new order from cart checkout.
+ * GET      | /                 | Get all orders (with filtering).
+ * GET      | /:id              | Get a single order by ID.
+ * PUT      | /:id              | Update an existing order status.
+ * DELETE   | /:id              | Delete an order (admin only).
+ *
+ * =================================================================
+ *
+ * REQUEST/RESPONSE FORMATS
+ *
+ * --- POST / ---
+ * Request Body:
  * {
- *   "buyerId": 1,
- *   "shippingAddressId": 2,
- *   "billingAddressId": 3,
- *   "shippingMethod": "ground", // optional, defaults to "ground"
- *   "carrier": "FedEx", // optional, defaults to "Standard Shipping"
- *   "estimatedWeight": 2.5 // optional, calculated from products if not provided
+ *     "buyerId": 1,
+ *     "shippingAddressId": 2,
+ *     "billingAddressId": 3,
+ *     "paymentMethod": "crypto"
  * }
- * 
- * Example payment request:
+ *
+ * --- PUT /:id ---
+ * Request Body:
  * {
- *   "paymentMethod": "crypto",
- *   "transactionHash": "0x123...",
- *   "fromAddress": "0xabc...",
- *   "toAddress": "0xdef..."
+ *     "order_status": "confirmed",     // Valid: "pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"
+ *     "payment_status": "paid"         // Valid: "pending", "paid", "failed", "refunded", "partially_refunded"
  * }
+ *
  */
 
 const express = require('express');
@@ -43,26 +39,87 @@ const router = express.Router();
 
 const prisma = new PrismaClient();
 
-// POST /api/orders - Create a new order (from cart checkout)
-router.post('/checkout', async (req, res) => {
+// ----------------------------------------------------------------
+// CREATE - Create a new order from cart checkout
+// ----------------------------------------------------------------
+router.post('/', async (req, res) => {
   try {
-    const { buyerId, shippingAddressId, billingAddressId, shippingMethod, carrier, estimatedWeight } = req.body;
+    const { buyerId, shippingAddressId, billingAddressId, paymentMethod } = req.body;
 
+    // Validate required fields
     if (!buyerId || !shippingAddressId || !billingAddressId) {
-      return res.status(400).json({ success: false, error: 'buyerId, shippingAddressId, and billingAddressId are required' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: buyerId, shippingAddressId, billingAddressId' 
+      });
+    }
+
+    // Validate buyerId format
+    const buyerIdInt = parseInt(buyerId);
+    if (isNaN(buyerIdInt)) {
+      return res.status(400).json({ success: false, error: 'Invalid buyerId format.' });
+    }
+
+    // Validate address IDs format
+    const shippingAddressIdInt = parseInt(shippingAddressId);
+    const billingAddressIdInt = parseInt(billingAddressId);
+    if (isNaN(shippingAddressIdInt) || isNaN(billingAddressIdInt)) {
+      return res.status(400).json({ success: false, error: 'Invalid address ID format.' });
+    }
+
+    // Validate that buyer exists
+    const buyer = await prisma.user.findUnique({
+      where: { id: buyerIdInt }
+    });
+    if (!buyer) {
+      return res.status(404).json({ success: false, error: 'Buyer not found.' });
+    }
+
+    // Validate that shipping address exists and belongs to the buyer
+    const shippingAddress = await prisma.user_addresses.findFirst({
+      where: { 
+        id: shippingAddressIdInt,
+        user_id: buyerIdInt,
+        address_type: 'shipping'
+      }
+    });
+    if (!shippingAddress) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid shipping address or address does not belong to buyer.' 
+      });
+    }
+
+    // Validate that billing address exists and belongs to the buyer
+    const billingAddress = await prisma.user_addresses.findFirst({
+      where: { 
+        id: billingAddressIdInt,
+        user_id: buyerIdInt,
+        address_type: 'billing'
+      }
+    });
+    if (!billingAddress) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid billing address or address does not belong to buyer.' 
+      });
     }
 
     const cartItems = await prisma.cartItem.findMany({
-      where: { userId: parseInt(buyerId) },
-      include: { product: { include: { seller: true, images: true } } },
+      where: { userId: buyerIdInt },
+      include: { product: { include: { seller: true } } },
     });
 
     if (cartItems.length === 0) {
-      return res.status(400).json({ success: false, error: 'Cart is empty' });
+      return res.status(400).json({ success: false, error: 'Cart is empty.' });
     }
 
+    // Determine payment status based on payment method
+    const paymentStatus = paymentMethod ? 'pending' : 'pending'; // Always start as pending
+    const orderStatus = 'pending'; // Orders always start as pending
+
     // --- Transaction starts here ---
-    const result = await prisma.$transaction(async (tx) => {
+    const newOrder = await prisma.$transaction(async (tx) => {
       // 1. Validate stock for all items
       for (const item of cartItems) {
         if (item.product.quantity < item.quantity) {
@@ -73,27 +130,19 @@ router.post('/checkout', async (req, res) => {
         }
       }
 
-      // 2. Calculate totals and shipping
+      // 2. Calculate totals
       const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-      const totalWeight = cartItems.reduce((sum, item) => {
-        const weight = item.product.weightKg || 0.5; // Default 0.5kg if not specified
-        return sum + (parseFloat(weight) * item.quantity);
-      }, 0);
-      
-      // Calculate shipping cost based on weight (simple formula)
-      const shippingAmount = Math.max(5.00, totalWeight * 2.50); // Minimum $5, $2.50 per kg
-      const totalAmount = parseFloat(subtotal) + shippingAmount;
+      const totalAmount = subtotal; // Add tax/shipping logic here if needed
 
       // 3. Create the main Order record
       const order = await tx.order.create({
         data: {
-          buyer_id: parseInt(buyerId),
-          shippingAddressId: parseInt(shippingAddressId),
-          billingAddressId: parseInt(billingAddressId),
-          order_status: 'pending',
-          payment_status: 'pending', // Order created but payment not processed yet
+          buyer_id: buyerIdInt,
+          shippingAddressId: shippingAddressIdInt,
+          billingAddressId: billingAddressIdInt,
+          order_status: orderStatus,
+          payment_status: paymentStatus,
           subtotal,
-          shippingAmount,
           totalAmount,
         },
       });
@@ -113,20 +162,7 @@ router.post('/checkout', async (req, res) => {
         })),
       });
 
-      // 5. MANDATORY: Create shipment details for the order
-      const shipment = await tx.shipment.create({
-        data: {
-          orderId: order.id,
-          carrier: carrier || 'Standard Shipping',
-          shipping_method: shippingMethod || 'ground',
-          shipping_cost: shippingAmount,
-          weight_kg: totalWeight,
-          status: 'pending',
-          notes: `Order created with ${cartItems.length} items, total weight: ${totalWeight}kg`
-        }
-      });
-
-      // 6. Reserve stock (decrement) - Order is created regardless of payment
+      // 5. Decrement stock for each product
       for (const item of cartItems) {
         await tx.product.update({
           where: { id: item.productId },
@@ -134,256 +170,257 @@ router.post('/checkout', async (req, res) => {
         });
       }
 
-      // 7. Clear the user's cart
+      // 6. Clear the user's cart
       await tx.cartItem.deleteMany({
         where: { userId: parseInt(buyerId) },
       });
 
-      return { order, shipment };
+      return order;
     });
 
-    res.status(201).json({ 
-      success: true, 
-      message: 'Order created successfully! Payment can be processed separately.', 
-      data: {
-        order: result.order,
-        shipment: result.shipment,
-        note: 'Order is created with pending payment status. Stock has been reserved.'
-      }
-    });
+    res.status(201).json({ success: true, message: 'Checkout successful!', data: newOrder });
   } catch (error) {
     console.error('Error during checkout:', error);
     res.status(500).json({ success: false, error: error.message || 'Internal server error' });
   }
 });
 
-// POST /api/orders/:id/payment - Process payment for an existing order
-router.post('/:id/payment', async (req, res) => {
-  try {
-    const orderId = parseInt(req.params.id);
-    const { paymentMethod, transactionHash, fromAddress, toAddress } = req.body;
-
-    if (isNaN(orderId)) {
-      return res.status(400).json({ success: false, error: 'Invalid order ID' });
-    }
-
-    // Check if order exists and is in pending payment status
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { shipments: true }
-    });
-
-    if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-
-    if (order.payment_status !== 'pending') {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Order payment status is ${order.payment_status}. Can only process payment for pending orders.` 
-      });
-    }
-
-    try {
-      // Process payment in transaction
-      const result = await prisma.$transaction(async (tx) => {
-        // Create payment transaction record
-        const paymentTransaction = await tx.paymentTransaction.create({
-          data: {
-            orderId: orderId,
-            amount: order.totalAmount,
-            tx_hash: transactionHash || `mock_tx_${Date.now()}`,
-            from_address: fromAddress || '0x0000000000000000000000000000000000000000',
-            to_address: toAddress || '0x1111111111111111111111111111111111111111',
-            status: 'confirmed' // In real implementation, this would be 'pending' initially
-          }
-        });
-
-        // Update order payment status
-        const updatedOrder = await tx.order.update({
-          where: { id: orderId },
-          data: { 
-            payment_status: 'paid',
-            order_status: 'confirmed' // Move to confirmed once payment is successful
-          }
-        });
-
-        // Update shipment status to ready for pickup
-        if (order.shipments) {
-          await tx.shipment.update({
-            where: { orderId: orderId },
-            data: { status: 'pending' } // Ready for carrier pickup
-          });
-        }
-
-        return { order: updatedOrder, payment: paymentTransaction };
-      });
-
-      res.json({
-        success: true,
-        message: 'Payment processed successfully!',
-        data: result
-      });
-
-    } catch (paymentError) {
-      // Payment failed - update order status but keep the order
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { payment_status: 'failed' }
-      });
-
-      res.status(400).json({
-        success: false,
-        error: 'Payment processing failed. Order remains in system with failed payment status.',
-        orderId: orderId,
-        note: 'You can retry payment or cancel the order. Stock remains reserved.'
-      });
-    }
-
-  } catch (error) {
-    console.error('Error processing payment:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
-
-// GET /api/orders - Get all orders with filtering
+// ----------------------------------------------------------------
+// READ ALL - Get all orders with filtering
+// ----------------------------------------------------------------
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 10, buyerId, status } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
+    const { buyer_id, order_status, payment_status, limit, offset } = req.query;
 
-    const where = {};
-    if (buyerId) where.buyer_id = parseInt(buyerId);
-    if (status) where.order_status = status;
+    // Build where clause for filtering
+    const whereClause = {};
+    if (buyer_id) {
+      const buyerIdInt = parseInt(buyer_id);
+      if (isNaN(buyerIdInt)) {
+        return res.status(400).json({ success: false, error: 'Invalid buyer_id format.' });
+      }
+      whereClause.buyer_id = buyerIdInt;
+    }
+    if (order_status) {
+      const validOrderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+      if (!validOrderStatuses.includes(order_status)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid order_status. Valid values: ${validOrderStatuses.join(', ')}` 
+        });
+      }
+      whereClause.order_status = order_status;
+    }
+    if (payment_status) {
+      const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded', 'partially_refunded'];
+      if (!validPaymentStatuses.includes(payment_status)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid payment_status. Valid values: ${validPaymentStatuses.join(', ')}` 
+        });
+      }
+      whereClause.payment_status = payment_status;
+    }
 
-    const [orders, total] = await prisma.$transaction([
-      prisma.order.findMany({
-        where,
-        skip,
-        take,
-        include: {
-          users: { select: { id: true, username: true } }, // Correct relation name
-          orderItems: { include: { product: true } },
+    // Parse pagination parameters
+    const limitInt = limit ? parseInt(limit) : 50;
+    const offsetInt = offset ? parseInt(offset) : 0;
+    if (isNaN(limitInt) || isNaN(offsetInt) || limitInt < 1 || offsetInt < 0) {
+      return res.status(400).json({ success: false, error: 'Invalid pagination parameters.' });
+    }
+
+    const orders = await prisma.order.findMany({
+      where: whereClause,
+      include: {
+        users: {
+          select: { id: true, username: true, email: true }
         },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.order.count({ where }),
-    ]);
-
-    res.json({
-      success: true,
-      data: orders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)),
+        orderItems: {
+          include: {
+            product: {
+              select: { id: true, name: true, price: true, sellerId: true }
+            }
+          }
+        },
+        shippingAddress: true,
+        user_addresses_orders_billing_address_idTouser_addresses: true
       },
+      orderBy: { createdAt: 'desc' },
+      take: limitInt,
+      skip: offsetInt
     });
+
+    res.status(200).json({ success: true, data: orders });
   } catch (error) {
     console.error('Error fetching orders:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
-// GET /api/orders/:id - Get a single order by ID
+// ----------------------------------------------------------------
+// READ BY ID - Get a single order by ID
+// ----------------------------------------------------------------
 router.get('/:id', async (req, res) => {
   try {
-    const orderId = parseInt(req.params.id);
+    const { id } = req.params;
+
+    // Validate ID format
+    const orderId = parseInt(id);
     if (isNaN(orderId)) {
-      return res.status(400).json({ success: false, error: 'Invalid order ID' });
+      return res.status(400).json({ success: false, error: 'Invalid order ID format.' });
     }
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        users: { select: { id: true, username: true, email: true } },
+        users: {
+          select: { id: true, username: true, email: true }
+        },
         orderItems: {
           include: {
             product: {
-              include: {
-                seller: { select: { id: true, username: true } },
-                images: {
-                  orderBy: { sortOrder: 'asc' },
-                  take: 1
-                }
-              }
-            },
-          },
+              select: { id: true, name: true, price: true, sellerId: true }
+            }
+          }
         },
         shippingAddress: true,
-        user_addresses_orders_billing_address_idTouser_addresses: true,
-        shipments: true,
-      },
+        user_addresses_orders_billing_address_idTouser_addresses: true
+      }
     });
 
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-    res.json({ success: true, data: order });
-  } catch (error) {
-    console.error(`Error fetching order ${req.params.id}:`, error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
-
-// PUT /api/orders/:id/status - Update an order's status
-router.put('/:id/status', async (req, res) => {
-  try {
-    const orderId = parseInt(req.params.id);
-    const { status } = req.body;
-
-    if (isNaN(orderId)) {
-      return res.status(400).json({ error: 'Invalid order ID' });
-    }
-    if (!status) {
-      return res.status(400).json({ error: 'Status is required' });
-    }
-
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: { order_status: status },
-    });
-
-    res.json({ success: true, message: 'Order status updated', data: updatedOrder });
-  } catch (error) {
-    if (error.code === 'P2025') {
       return res.status(404).json({ success: false, error: 'Order not found.' });
     }
-    console.error(`Error updating order status for ${req.params.id}:`, error);
-    res.status(500).json({ error: 'Internal server error' });
+
+    res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
-// DELETE /api/orders/:id - Delete an order (Admin only)
-// Note: Deleting orders is generally not recommended. Cancelling is better.
+// ----------------------------------------------------------------
+// UPDATE BY ID - Update an existing order status
+// ----------------------------------------------------------------
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { order_status, payment_status } = req.body;
+
+    // Validate ID format
+    const orderId = parseInt(id);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ success: false, error: 'Invalid order ID format.' });
+    }
+
+    // Validate order_status if provided
+    if (order_status) {
+      const validOrderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+      if (!validOrderStatuses.includes(order_status)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid order_status. Valid values: ${validOrderStatuses.join(', ')}` 
+        });
+      }
+    }
+
+    // Validate payment_status if provided
+    if (payment_status) {
+      const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded', 'partially_refunded'];
+      if (!validPaymentStatuses.includes(payment_status)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid payment_status. Valid values: ${validPaymentStatuses.join(', ')}` 
+        });
+      }
+    }
+
+    // Check if order exists
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: orderId }
+    });
+    if (!existingOrder) {
+      return res.status(404).json({ success: false, error: 'Order not found.' });
+    }
+
+    // Build update data
+    const updateData = { updated_at: new Date() };
+    if (order_status) updateData.order_status = order_status;
+    if (payment_status) updateData.payment_status = payment_status;
+
+    const order = await prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+      include: {
+        users: {
+          select: { id: true, username: true, email: true }
+        },
+        orderItems: {
+          include: {
+            product: {
+              select: { id: true, name: true, price: true }
+            }
+          }
+        }
+      }
+    });
+
+    res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    console.error('Error updating order:', error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+// ----------------------------------------------------------------
+// DELETE BY ID - Delete an order (admin only)
+// ----------------------------------------------------------------
 router.delete('/:id', async (req, res) => {
   try {
-    const orderId = parseInt(req.params.id);
+    const { id } = req.params;
+
+    // Validate ID format
+    const orderId = parseInt(id);
     if (isNaN(orderId)) {
-      return res.status(400).json({ success: false, error: 'Invalid order ID' });
+      return res.status(400).json({ success: false, error: 'Invalid order ID format.' });
     }
 
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
+    // Check if order exists
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: orderId }
+    });
+    if (!existingOrder) {
+      return res.status(404).json({ success: false, error: 'Order not found.' });
     }
 
-    // For safety, only allow deletion of orders that are already cancelled.
-    if (order.order_status !== 'cancelled') {
-      return res.status(400).json({ success: false, error: 'Only cancelled orders can be deleted. Please cancel the order first.' });
+    // For safety, only allow deletion of orders that are already cancelled
+    if (existingOrder.order_status !== 'cancelled') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Only cancelled orders can be deleted. Please cancel the order first.' 
+      });
     }
 
-    await prisma.order.delete({ where: { id: orderId } });
+    // Delete order in a transaction to handle related records
+    await prisma.$transaction(async (tx) => {
+      // First delete order items
+      await tx.orderItem.deleteMany({
+        where: { orderId: orderId }
+      });
+      
+      // Then delete the order
+      await tx.order.delete({
+        where: { id: orderId }
+      });
+    });
 
-    res.json({ success: true, message: 'Order deleted successfully' });
+    res.status(200).json({ success: true, data: { message: 'Order deleted successfully.' } });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ success: false, error: 'Order not found.' });
     }
-    console.error(`Error deleting order ${req.params.id}:`, error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    console.error('Error deleting order:', error);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 

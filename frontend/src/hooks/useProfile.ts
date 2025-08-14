@@ -5,7 +5,7 @@ import type { User, Order } from '../types';
 
 
 // The custom hook
-export const useProfile = (userId: string | null) => {
+export const useProfile = (userId: number | null) => {
     const [profile, setProfile] = useState<User | null>(null);
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
@@ -13,6 +13,11 @@ export const useProfile = (userId: string | null) => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     const fetchData = useCallback(async () => {
+        if (!userId) {
+            setLoading(false);
+            return;
+        }
+        
         setLoading(true);
         setError(null);
         try {
@@ -39,13 +44,8 @@ export const useProfile = (userId: string | null) => {
     }, [userId, API_BASE_URL]);
 
     useEffect(() => {
-        //_ 5. A cleaner check: only run the fetch logic if we have a valid userId.
-        if (userId) {
-            fetchData();
-        } else {
-            setLoading(false);
-        }
-    }, [userId, fetchData]);
+        fetchData();
+    }, [fetchData]);
 
     // Return the state and a function to refetch the data manually if needed
     return { profile, orders, profileLoading: loading, error, refetchData: fetchData };

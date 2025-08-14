@@ -204,3 +204,10 @@ export interface DashboardStats {
     totalOrders: number;
     totalRevenue: number;
 }
+
+
+// =================================================================
+// THEME & UI TYPES
+// =================================================================
+
+export type Theme = 'light' | 'dark';

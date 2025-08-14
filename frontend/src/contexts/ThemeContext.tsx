@@ -1,8 +1,8 @@
+// frontend/src/contexts/ThemeContext.tsx
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-type Theme = 'light' | 'dark';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Theme } from '../types'; // Import the type from the source of truth
 
 interface ThemeContextType {
   theme: Theme;
@@ -25,48 +25,50 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
+  // This line should now work without errors
   const [theme, setThemeState] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
   // Load theme from localStorage on mount
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
-      setThemeState(savedTheme);
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setThemeState(prefersDark ? 'dark' : 'light');
+    try {
+      const savedTheme = localStorage.getItem('theme') as Theme;
+      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
+        setThemeState(savedTheme);
+      } else {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setThemeState(prefersDark ? 'dark' : 'light');
+      }
+    } catch (error) {
+        console.error("Could not parse theme from localStorage", error)
     }
   }, []);
 
   // Apply theme to document
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    if (mounted) {
+      const root = document.documentElement;
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+      localStorage.setItem('theme', theme);
     }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  }, [theme, mounted]);
 
   const toggleTheme = () => {
-    setThemeState(prev => prev === 'light' ? 'dark' : 'light');
+    setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
   };
-
-  // Prevent hydration mismatch by not rendering until mounted
+  
+  // To prevent hydration mismatch, we avoid rendering the UI until the client-side `useEffect` has run.
   if (!mounted) {
-    return (
-      <ThemeContext.Provider value={{ theme, toggleTheme: () => {}, setTheme: () => {} }}>
-        {children}
-      </ThemeContext.Provider>
-    );
+    return null; 
   }
 
   return (
