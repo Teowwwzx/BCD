@@ -52,7 +52,7 @@ const prisma = new PrismaClient();
 // ----------------------------------------------------------------
 router.post('/', async (req, res) => {
     try {
-        const { sellerId, categoryId, name, description, price, quantity, sku, status } = req.body;
+        const { sellerId, categoryId, name, description, price, quantity, sku, status, imageUrl } = req.body;
 
         if (!sellerId || !categoryId || !name || price === undefined || quantity === undefined) {
             return res.status(400).json({ success: false, error: 'sellerId, categoryId, name, price, and quantity are required fields.' });
@@ -70,6 +70,18 @@ router.post('/', async (req, res) => {
                 category: { connect: { id: parseInt(categoryId) } }
             },
         });
+
+        // If imageUrl is provided, create a ProductImage record
+        if (imageUrl) {
+            await prisma.productImage.create({
+                data: {
+                    productId: newProduct.id,
+                    imageUrl,
+                    altText: `${name} product image`,
+                    sortOrder: 0
+                }
+            });
+        }
 
         res.status(201).json({ success: true, data: newProduct });
     } catch (error) {

@@ -23,6 +23,7 @@ export interface SellerProduct {
 
 export interface Sale {
   id: string;
+  productId?: number | null;
   productName: string;
   buyer: string;
   amount: string;
@@ -37,6 +38,7 @@ export interface NewProductForm {
   category: string;
   stock: number;
   images: File[];
+  imageUrl?: string; // optional direct URL
 }
 
 export interface UseSellerReturn {
@@ -44,10 +46,12 @@ export interface UseSellerReturn {
   products: SellerProduct[];
   sales: Sale[];
   newProduct: NewProductForm;
+  editProduct: NewProductForm | null;
   
   // UI State
   activeTab: string;
   showAddProduct: boolean;
+  showEditProduct: boolean;
   
   // Loading and Error States
   productsIsLoading: boolean;
@@ -62,11 +66,16 @@ export interface UseSellerReturn {
   
   // State Setters
   setNewProduct: React.Dispatch<React.SetStateAction<NewProductForm>>;
+  setEditProduct: React.Dispatch<React.SetStateAction<NewProductForm | null>>;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
   setShowAddProduct: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowEditProduct: React.Dispatch<React.SetStateAction<boolean>>;
   
   // Actions
   handleAddProduct: () => Promise<void>;
+  handleEditProduct: (product: SellerProduct) => void;
+  handleUpdateProduct: () => Promise<void>;
+  handleDeleteProduct: (productId: number) => Promise<void>;
   fetchProducts: () => Promise<void>;
   fetchSales: () => Promise<void>;
   
@@ -95,6 +104,7 @@ export const useSeller = (): UseSellerReturn => {
   // 2. State Hooks
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showEditProduct, setShowEditProduct] = useState(false);
   const [products, setProducts] = useState<SellerProduct[]>(productsCache);
   const [sales, setSales] = useState<Sale[]>(salesCache);
   const [productsIsLoading, setProductsIsLoading] = useState(false);
@@ -108,8 +118,11 @@ export const useSeller = (): UseSellerReturn => {
     price: '',
     category: '',
     stock: 0,
-    images: []
+    images: [],
+    imageUrl: ''
   });
+  const [editProduct, setEditProduct] = useState<NewProductForm | null>(null);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
 
   // 3. Callback Functions (declared before useEffect)
   const fetchProducts = useCallback(async () => {
@@ -131,19 +144,19 @@ export const useSeller = (): UseSellerReturn => {
         throw new Error('Failed to fetch products');
       }
       
-      const data = await response.json();
-      const transformedProducts: SellerProduct[] = data.map((product: any) => ({
+      const result = await response.json();
+      const list = Array.isArray(result) ? result : (result.data || []);
+      const transformedProducts: SellerProduct[] = list.map((product: any) => ({
         id: product.id,
         name: product.name,
         description: product.description,
-        price: `${product.price} ETH`,
-        category: product.category,
-        stock: product.quantity,
-        status: product.status === 'active' && product.quantity > 0 ? 'active' : 
-                product.quantity === 0 ? 'out_of_stock' : 'inactive',
+        price: `${Number(product.price)} ETH`,
+        category: product.category?.name || 'Uncategorized',
+        stock: product.quantity ?? product.stock_quantity ?? 0,
+        status: product.quantity > 0 && product.status === 'published' ? 'active' : (product.quantity === 0 ? 'out_of_stock' : 'inactive'),
         sales: 0,
         revenue: '0 ETH',
-        dateAdded: product.created_at || new Date().toISOString()
+        dateAdded: product.createdAt || product.created_at || new Date().toISOString()
       }));
       
       productsCache = transformedProducts;
@@ -173,21 +186,43 @@ export const useSeller = (): UseSellerReturn => {
     setSalesError(null);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/orders?sellerId=${user.id}`);
+      // Use seller_id (snake_case) per backend API
+      const response = await fetch(`${API_BASE_URL}/orders?seller_id=${user.id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch sales');
       }
       
-      const data = await response.json();
-      const transformedSales: Sale[] = data.map((order: any) => ({
-        id: order.id.toString(),
-        productName: order.product_name || 'Unknown Product',
-        buyer: order.buyer_name || 'Unknown Buyer',
-        amount: `${order.total_amount} ETH`,
-        date: order.created_at || new Date().toISOString(),
-        status: order.status === 'completed' ? 'completed' : 
-                order.status === 'refunded' ? 'refunded' : 'pending'
-      }));
+      const result = await response.json();
+      const orders = Array.isArray(result) ? result : (result.data || []);
+  
+      // Flatten order items that belong to this seller
+      const transformedSales: Sale[] = [];
+      for (const order of orders) {
+        const buyerName = order.users?.username || 'Unknown Buyer';
+        const createdDate = order.createdAt || order.created_at || new Date().toISOString();
+        const orderStatus = order.order_status || order.status;
+        const paymentStatus = order.payment_status;
+        const mappedStatus: Sale['status'] = orderStatus === 'refunded'
+          ? 'refunded'
+          : (orderStatus === 'delivered' || orderStatus === 'confirmed' || paymentStatus === 'paid')
+            ? 'completed'
+            : 'pending';
+        const items = order.orderItems || [];
+        for (const item of items) {
+          if (item.seller_id === user.id) {
+            const amountNum = Number(item.totalPrice ?? item.total_price ?? 0);
+            transformedSales.push({
+              id: `${order.id}-${item.id}`,
+              productId: item.productId ?? item.product?.id ?? null,
+              productName: item.product?.name || item.product_name || 'Unknown Product',
+              buyer: buyerName,
+              amount: `${amountNum} ETH`,
+              date: createdDate,
+              status: mappedStatus,
+            });
+          }
+        }
+      }
       
       salesCache = transformedSales;
       lastSalesFetch = now;
@@ -217,40 +252,152 @@ export const useSeller = (): UseSellerReturn => {
       alert('You must be logged in to add products');
       return;
     }
+  
+    // Basic validation
+    if (!newProduct.name || !newProduct.description || !newProduct.price || !newProduct.category || newProduct.stock <= 0) {
+      alert('Please fill in all required fields and ensure stock is greater than 0.');
+      return;
+    }
     
     try {
-      // TODO: Implement actual API call to create product
-      const productData = {
+      // 1) Fetch categories and find the matching one by name (case-insensitive)
+      const catRes = await fetch(`${API_BASE_URL}/categories`);
+      if (!catRes.ok) throw new Error('Failed to load categories');
+      const catJson = await catRes.json();
+      const categories = Array.isArray(catJson) ? catJson : (catJson.data || []);
+      const match = categories.find((c: any) => (c.name || '').toLowerCase() === newProduct.category.toLowerCase());
+      if (!match) {
+        alert('Selected category not found. Please choose a valid category.');
+        return;
+      }
+  
+      const payload = {
+        sellerId: user.id,
+        categoryId: match.id,
         name: newProduct.name,
         description: newProduct.description,
         price: parseFloat(newProduct.price),
         quantity: newProduct.stock,
-        sellerId: user.id,
-        categoryId: 1, // TODO: Map category name to ID
-        status: 'published'
+        status: 'published',
+        ...(newProduct.imageUrl ? { imageUrl: newProduct.imageUrl } : {})
       };
-      
-      console.log('Adding new product:', productData);
-      alert('Product will be added to the blockchain marketplace');
-      
+  
+      const res = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+  
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to create product');
+      }
+  
+      alert('Product created successfully');
+  
       // Reset form and close modal
       setShowAddProduct(false);
-      setNewProduct({ 
-        name: '', 
-        description: '', 
-        price: '', 
-        category: '', 
-        stock: 0, 
-        images: [] 
-      });
-      
-      // Refresh products list
+      setNewProduct({ name: '', description: '', price: '', category: '', stock: 0, images: [], imageUrl: '' });
+  
+      // Invalidate caches and refresh
+      productsCache = [];
       await fetchProducts();
     } catch (error) {
       console.error('Error adding product:', error);
-      alert('Failed to add product. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to add product. Please try again.');
     }
   }, [newProduct, user?.id, fetchProducts]);
+
+  const handleEditProduct = useCallback((product: SellerProduct) => {
+    // Prepare edit form data mapped from SellerProduct
+    const priceValue = String(parseFloat(product.price.replace(' ETH', '')) || '');
+    setEditProduct({
+      name: product.name,
+      description: product.description || '',
+      price: priceValue,
+      category: product.category,
+      stock: product.stock,
+      images: [],
+      imageUrl: ''
+    });
+    setEditingProductId(product.id);
+    setShowEditProduct(true);
+  }, []);
+
+  const handleUpdateProduct = useCallback(async () => {
+    if (!user?.id || !editProduct) return;
+
+    try {
+      // 1) Find categoryId by name
+      const catRes = await fetch(`${API_BASE_URL}/categories`);
+      const categories = await catRes.json();
+      const cats = Array.isArray(categories) ? categories : (categories.data || []);
+      const matchedCategory = cats.find((c: any) => String(c.name).toLowerCase() === String(editProduct.category).toLowerCase());
+      const categoryId = matchedCategory?.id;
+
+      // 2) Use the selected product id stored when opening the edit modal
+      const productId = editingProductId;
+      if (!productId) {
+        alert('No product selected to update.');
+        return;
+      }
+
+      const payload: any = {
+        name: editProduct.name,
+        description: editProduct.description,
+        price: parseFloat(editProduct.price),
+        quantity: editProduct.stock,
+      };
+      if (categoryId) payload.categoryId = categoryId;
+
+      const res = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || 'Failed to update product');
+      }
+
+      setShowEditProduct(false);
+      setEditProduct(null);
+      setEditingProductId(null);
+      // Invalidate cache so the next fetch reflects updated data immediately
+      productsCache = [];
+      lastProductsFetch = 0;
+      await fetchProducts();
+      alert('Product updated successfully');
+    } catch (error) {
+      console.error('Error updating product:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update product. Please try again.');
+    }
+  }, [editProduct, user?.id, fetchProducts, editingProductId]);
+
+  const handleDeleteProduct = useCallback(async (productId: number) => {
+    if (!productId) return;
+    const confirmed = typeof window !== 'undefined' ? window.confirm('Are you sure you want to delete this product? This action cannot be undone.') : true;
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${productId}`, { method: 'DELETE' });
+      const text = await res.text();
+      let json: any;
+      try { json = JSON.parse(text); } catch { json = { success: res.ok, error: text }; }
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.error || 'Failed to delete product');
+      }
+      // Invalidate cache and refresh list
+      productsCache = [];
+      lastProductsFetch = 0;
+      await fetchProducts();
+      alert('Product deleted successfully');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete product.');
+    }
+  }, [fetchProducts]);
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
@@ -273,22 +420,41 @@ export const useSeller = (): UseSellerReturn => {
   }, []);
 
   // 5. Computed Values
-  const totalRevenue = products.reduce((sum, product) => {
-    return sum + parseFloat(product.revenue.replace(' ETH', ''));
-  }, 0);
-
-  const totalSales = products.reduce((sum, product) => sum + product.sales, 0);
+  const completedSales = sales.filter(s => s.status === 'completed');
+  const totalRevenue = completedSales.reduce((sum, s) => sum + (parseFloat(String(s.amount).replace(' ETH', '')) || 0), 0);
+  const totalSales = completedSales.length;
   const activeProducts = products.filter(p => p.status === 'active').length;
+
+  // Enhance products with per-product sales and revenue
+  const salesByProduct = new Map<number, { count: number; revenue: number }>();
+  for (const s of completedSales) {
+    if (s.productId != null) {
+      const prev = salesByProduct.get(s.productId) || { count: 0, revenue: 0 };
+      prev.count += 1;
+      prev.revenue += (parseFloat(String(s.amount).replace(' ETH', '')) || 0);
+      salesByProduct.set(s.productId, prev);
+    }
+  }
+  const enhancedProducts = products.map(p => {
+    const stat = salesByProduct.get(p.id) || { count: 0, revenue: 0 };
+    return {
+      ...p,
+      sales: stat.count,
+      revenue: `${stat.revenue.toFixed(2)} ETH`,
+    } as SellerProduct;
+  });
 
   return {
     // Data
-    products,
+    products: enhancedProducts,
     sales,
     newProduct,
+    editProduct,
     
     // UI State
     activeTab,
     showAddProduct,
+    showEditProduct,
     
     // Loading and Error States
     productsIsLoading,
@@ -303,11 +469,16 @@ export const useSeller = (): UseSellerReturn => {
     
     // State Setters
     setNewProduct,
+    setEditProduct,
     setActiveTab,
     setShowAddProduct,
+    setShowEditProduct,
     
     // Actions
     handleAddProduct,
+    handleEditProduct,
+    handleUpdateProduct,
+    handleDeleteProduct,
     fetchProducts,
     fetchSales,
     
