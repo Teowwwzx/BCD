@@ -1,0 +1,433 @@
+{
+	"info": {
+		"_postman_id": "notifications-api-collection",
+		"name": "Notifications API - BCD Marketplace",
+		"description": "Complete test collection for the Notifications API endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Notification",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": {{user_id}},\n    \"type\": \"order_update\",\n    \"title\": \"Order Status Update\",\n    \"message\": \"Your order has been shipped and is on its way!\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/notifications",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Notifications (All)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/{{user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"{{user_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Notifications (Unread Only)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/{{user_id}}?isRead=false",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"{{user_id}}"
+					],
+					"query": [
+						{
+							"key": "isRead",
+							"value": "false"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Notifications (Read Only)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/{{user_id}}?isRead=true",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"{{user_id}}"
+					],
+					"query": [
+						{
+							"key": "isRead",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Notifications (By Type)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/{{user_id}}?type=order_update",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"{{user_id}}"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "order_update"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Notifications (Paginated)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/{{user_id}}?page=1&limit=5",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"{{user_id}}"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "limit",
+							"value": "5"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Notification as Read",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/{{notification_id}}/read",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"{{notification_id}}",
+						"read"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create System Notification",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": {{user_id}},\n    \"type\": \"system_message\",\n    \"title\": \"System Maintenance\",\n    \"message\": \"The system will undergo maintenance on Sunday from 2 AM to 4 AM.\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/notifications",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Payment Notification",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": {{user_id}},\n    \"type\": \"payment_received\",\n    \"title\": \"Payment Received\",\n    \"message\": \"Your payment of $99.99 has been successfully processed.\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/notifications",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Error Test - Invalid User ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/invalid_id",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"invalid_id"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Error Test - Missing Required Fields",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": {{user_id}},\n    \"type\": \"order_update\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/notifications",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Error Test - Non-existent User",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": 99999,\n    \"type\": \"order_update\",\n    \"title\": \"Test Notification\",\n    \"message\": \"This should fail because user doesn't exist.\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/notifications",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Error Test - Invalid Notification ID",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/invalid_id/read",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"invalid_id",
+						"read"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Error Test - Non-existent Notification",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/notifications/99999/read",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications",
+						"99999",
+						"read"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Error Test - Duplicate Notification",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": {{user_id}},\n    \"type\": \"order_update\",\n    \"title\": \"Order Status Update\",\n    \"message\": \"Your order has been shipped and is on its way!\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/notifications",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Error Test - Invalid Notification Type",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": {{user_id}},\n    \"type\": \"invalid_type\",\n    \"title\": \"Test Notification\",\n    \"message\": \"This should fail due to invalid type.\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/notifications",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"notifications"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "notification_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}

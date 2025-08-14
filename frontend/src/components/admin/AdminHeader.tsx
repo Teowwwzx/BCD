@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
 const AdminHeader: React.FC = () => {
     const { user, logout } = useAuth();

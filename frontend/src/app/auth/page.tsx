@@ -17,23 +17,21 @@ export default function AuthPage() {
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  const { isLoggedIn, login, register, isLoading, error, clearError, user } = useAuth();
+  const { isLoggedIn, login, authIsLoading, error, clearError, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // 1. Wait until the initial loading is done
-    if (!isLoading) {
+    // Wait until the initial loading is done
+    if (!authIsLoading) {
       if (isLoggedIn) {
         if (user?.user_role === 'admin') {
           router.push('/admin'); // Admins go to the admin dashboard
         } else {
           router.push('/profile'); // Other users go to their profile
         }
-      } else {
-        router.push('/auth');
       }
     }
-  }, [isLoggedIn, isLoading, router]);
+  }, [isLoggedIn, authIsLoading, router, user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -87,16 +85,16 @@ export default function AuthPage() {
       return;
     }
 
-    let success = false;
     if (isLogin) {
-      success = await login(formData.email, formData.password);
-    } else {
-      success = await register({
-        name: formData.name,
+      const success = await login({
         email: formData.email,
-        password: formData.password,
-        confirmPassword: formData.confirmPassword
+        password: formData.password
       });
+      // Login function handles navigation internally
+    } else {
+      // For registration, we'll need to implement a separate registration API call
+      // For now, show an error that registration is not implemented
+      setErrors({ general: 'Registration functionality is not yet implemented. Please contact an administrator.' });
     }
   };
 
@@ -213,10 +211,10 @@ export default function AuthPage() {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={authIsLoading}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? (
+              {authIsLoading ? (
                 <div className="flex items-center justify-center">
                   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

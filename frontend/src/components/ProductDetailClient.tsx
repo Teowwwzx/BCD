@@ -5,8 +5,8 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useProduct } from '../hooks/useProduct';
+import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../contexts/CartContext';      // THE FIX: Import the hook
-import { useAuth } from '../contexts/AuthContext';
 
 export default function ProductDetailClient({ id }: { id: string }) {
     console.log('CLIENT COMPONENT (ProductDetailClient.tsx): Received prop id:', id);
@@ -24,7 +24,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
             alert("Please log in to add items to your cart.");
             return;
         }
-        if (product && !product.isBlockchain) {
+        if (product && !product.isDigital) {
             // The product ID from the hook is the raw database ID
             await addToCart(product.id, quantity);
             alert(`${product.name} added to cart!`);
@@ -66,14 +66,14 @@ export default function ProductDetailClient({ id }: { id: string }) {
                         />
                         <button
                             onClick={handleAddToCart}
-                            disabled={cartLoading || product.isBlockchain}
+                            disabled={cartLoading || product.isDigital}
                             className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold py-2 px-6 rounded disabled:opacity-50"
                         >
                             {cartLoading ? 'Adding...' : 'Add to Cart'}
                         </button>
                     </div>
 
-                    {product.isBlockchain && (
+                    {product.isDigital && (
                         <div className="border-t border-gray-700 pt-6 mt-6">
                             <h2 className="text-2xl font-bold text-purple-400 mb-4">On-Chain Asset</h2>
                             {/* Blockchain-specific purchase logic would go here */}

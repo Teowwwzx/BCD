@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useWallet } from '../contexts/WalletContext';
 import { DashboardStats } from '../types/index';
 import { useAuth } from '../hooks/useAuth';
 
@@ -18,7 +17,7 @@ export const useAdminStats = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stats`, {
+      const response = await fetch(`${API_BASE_URL}/stats`, {
         headers: { 'Authorization': `Bearer ${token}` }, //_ 5. Use the token from context
       });
       if (!response.ok) throw new Error('Failed to fetch dashboard stats');

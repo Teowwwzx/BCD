@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { useModal } from '../contexts/ModalContext';
 import { useToasts } from '../contexts/ToastContext';
 import type { User, UserRole, UserStatus } from '../types';

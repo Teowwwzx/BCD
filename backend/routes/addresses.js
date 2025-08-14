@@ -1,6 +1,49 @@
+/**
+ * =================================================================
+ * API DOCUMENTATION: /api/addresses
+ * =================================================================
+ *
+ * METHOD   | URL               | DESCRIPTION
+ * ---------|-------------------|----------------------------------
+ * POST     | /                 | Create a new address for a user.
+ * GET      | /user/:userId     | Get all addresses for a user.
+ * GET      | /:id              | Get a single address by ID.
+ * PUT      | /:id              | Update an existing address.
+ * DELETE   | /:id              | Delete an address.
+ *
+ * =================================================================
+ *
+ * REQUEST/RESPONSE FORMATS
+ *
+ * --- POST / ---
+ * Request Body:
+ * {
+ *     "user_id": 1,
+ *     "address_type": "shipping",
+ *     "location_type": "home",
+ *     "addr_line_1": "123 Main Street",
+ *     "addr_line_2": "Apt 4B",
+ *     "city": "New York",
+ *     "state": "NY",
+ *     "postcode": "10001",
+ *     "country": "USA"
+ * }
+ *
+ * --- PUT /:id ---
+ * Request Body:
+ * {
+ *     "addr_line_1": "456 Oak Avenue",
+ *     "city": "Boston",
+ *     "state": "MA",
+ *     "postcode": "02101"
+ * }
+ *
+ */
+
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
+
 const prisma = new PrismaClient();
 
 // GET /api/addresses/user/:userId - Get all addresses for a user
