@@ -1,3 +1,4 @@
+// src/
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -53,11 +54,11 @@ const SellerProductsPage: React.FC = () => {
         case 'name':
           return a.name.localeCompare(b.name);
         case 'price':
-          return a.price - b.price;
+          return parseFloat(a.price.replace(' ETH', '')) - parseFloat(b.price.replace(' ETH', ''));
         case 'stock':
           return a.stock - b.stock;
         case 'date':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
         default:
           return 0;
       }
@@ -123,9 +124,9 @@ const SellerProductsPage: React.FC = () => {
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             >
               <option value="all">All Status</option>
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-              <option value="archived">Archived</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="out_of_stock">Out of Stock</option>
             </select>
 
             <select
@@ -156,11 +157,11 @@ const SellerProductsPage: React.FC = () => {
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{product.name}</h3>
-                <span className={`px-2 py-1 text-xs rounded-full ${product.status === 'published' ? 'bg-green-100 text-green-800' :
-                    product.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                <span className={`px-2 py-1 text-xs rounded-full ${product.status === 'active' ? 'bg-green-100 text-green-800' :
+                    product.status === 'out_of_stock' ? 'bg-red-100 text-red-800' :
                       'bg-gray-100 text-gray-800'
                   }`}>
-                  {product.status.charAt(0).toUpperCase() + product.status.slice(1)}
+                  {product.status === 'out_of_stock' ? 'Out of Stock' : product.status.charAt(0).toUpperCase() + product.status.slice(1)}
                 </span>
               </div>
 
@@ -171,7 +172,7 @@ const SellerProductsPage: React.FC = () => {
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">Price:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">${product.price.toFixed(2)}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{product.price}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">Stock:</span>
@@ -184,7 +185,7 @@ const SellerProductsPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">Created:</span>
-                  <span className="text-gray-900 dark:text-white">{formatDate(product.createdAt)}</span>
+                  <span className="text-gray-900 dark:text-white">{formatDate(product.dateAdded)}</span>
                 </div>
               </div>
 

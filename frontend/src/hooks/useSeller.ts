@@ -11,6 +11,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/a
 export interface SellerProduct {
   id: number;
   name: string;
+  description?: string;
   price: string;
   category: string;
   stock: number;
@@ -78,6 +79,15 @@ export interface UseSellerReturn {
 // THE HOOK
 // =================================================================
 
+// Global state to prevent multiple simultaneous API calls
+let isProductsFetching = false;
+let isSalesFetching = false;
+let productsCache: SellerProduct[] = [];
+let salesCache: Sale[] = [];
+let lastProductsFetch = 0;
+let lastSalesFetch = 0;
+const CACHE_DURATION = 30000; // 30 seconds
+
 export const useSeller = (): UseSellerReturn => {
   // 1. Context Hooks
   const { user, isLoggedIn } = useAuth();
@@ -85,8 +95,8 @@ export const useSeller = (): UseSellerReturn => {
   // 2. State Hooks
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [products, setProducts] = useState<SellerProduct[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<SellerProduct[]>(productsCache);
+  const [sales, setSales] = useState<Sale[]>(salesCache);
   const [productsIsLoading, setProductsIsLoading] = useState(false);
   const [salesIsLoading, setSalesIsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -101,148 +111,106 @@ export const useSeller = (): UseSellerReturn => {
     images: []
   });
 
-  // 3. Effect Hooks
-  useEffect(() => {
-    if (isLoggedIn && user?.id) {
-      fetchProducts();
-      fetchSales();
-    }
-  }, [isLoggedIn, user?.id]);
-
-  // 4. Performance Hooks (useCallback)
+  // 3. Callback Functions (declared before useEffect)
   const fetchProducts = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id || isProductsFetching) return;
     
+    const now = Date.now();
+    if (now - lastProductsFetch < CACHE_DURATION && productsCache.length > 0) {
+      setProducts(productsCache);
+      return;
+    }
+    
+    isProductsFetching = true;
     setProductsIsLoading(true);
     setProductsError(null);
     
     try {
       const response = await fetch(`${API_BASE_URL}/products?sellerId=${user.id}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch products: ${response.status}`);
+        throw new Error('Failed to fetch products');
       }
       
       const data = await response.json();
-      
-      // Transform API data to SellerProduct format
-      const transformedProducts: SellerProduct[] = data.products?.map((product: any) => ({
+      const transformedProducts: SellerProduct[] = data.map((product: any) => ({
         id: product.id,
         name: product.name,
+        description: product.description,
         price: `${product.price} ETH`,
-        category: product.category?.name || 'Uncategorized',
-        stock: product.quantity || 0,
-        status: product.quantity > 0 ? 'active' : 'out_of_stock',
-        sales: 0, // TODO: Get from orders/sales data
-        revenue: '0 ETH', // TODO: Calculate from sales
-        dateAdded: product.createdAt || new Date().toISOString()
-      })) || [];
+        category: product.category,
+        stock: product.quantity,
+        status: product.status === 'active' && product.quantity > 0 ? 'active' : 
+                product.quantity === 0 ? 'out_of_stock' : 'inactive',
+        sales: 0,
+        revenue: '0 ETH',
+        dateAdded: product.created_at || new Date().toISOString()
+      }));
       
+      productsCache = transformedProducts;
+      lastProductsFetch = now;
       setProducts(transformedProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
       setProductsError(error instanceof Error ? error.message : 'Failed to fetch products');
-      
-      // Fallback to mock data for development
-      setProducts([
-        {
-          id: 1,
-          name: "Premium Wireless Headphones",
-          price: "0.15 ETH",
-          category: "Electronics",
-          stock: 25,
-          status: 'active',
-          sales: 12,
-          revenue: "1.8 ETH",
-          dateAdded: "2024-01-10"
-        },
-        {
-          id: 2,
-          name: "Smart Fitness Watch",
-          price: "0.08 ETH",
-          category: "Electronics",
-          stock: 0,
-          status: 'out_of_stock',
-          sales: 8,
-          revenue: "0.64 ETH",
-          dateAdded: "2024-01-05"
-        },
-        {
-          id: 3,
-          name: "Organic Coffee Beans",
-          price: "0.02 ETH",
-          category: "Food & Beverage",
-          stock: 50,
-          status: 'active',
-          sales: 25,
-          revenue: "0.5 ETH",
-          dateAdded: "2023-12-20"
-        }
-      ]);
+      setProducts([]);
     } finally {
       setProductsIsLoading(false);
+      isProductsFetching = false;
     }
   }, [user?.id]);
-
+  
   const fetchSales = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id || isSalesFetching) return;
     
+    const now = Date.now();
+    if (now - lastSalesFetch < CACHE_DURATION && salesCache.length > 0) {
+      setSales(salesCache);
+      return;
+    }
+    
+    isSalesFetching = true;
     setSalesIsLoading(true);
     setSalesError(null);
     
     try {
       const response = await fetch(`${API_BASE_URL}/orders?sellerId=${user.id}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch sales: ${response.status}`);
+        throw new Error('Failed to fetch sales');
       }
       
       const data = await response.json();
+      const transformedSales: Sale[] = data.map((order: any) => ({
+        id: order.id.toString(),
+        productName: order.product_name || 'Unknown Product',
+        buyer: order.buyer_name || 'Unknown Buyer',
+        amount: `${order.total_amount} ETH`,
+        date: order.created_at || new Date().toISOString(),
+        status: order.status === 'completed' ? 'completed' : 
+                order.status === 'refunded' ? 'refunded' : 'pending'
+      }));
       
-      // Transform API data to Sale format
-      const transformedSales: Sale[] = data.orders?.map((order: any) => ({
-        id: order.uuid || order.id,
-        productName: order.orderItems?.[0]?.product_name || 'Unknown Product',
-        buyer: `${order.buyer?.username || 'Unknown'}`,
-        amount: `${order.totalAmount} ETH`,
-        date: order.createdAt,
-        status: order.order_status === 'completed' ? 'completed' : 'pending'
-      })) || [];
-      
+      salesCache = transformedSales;
+      lastSalesFetch = now;
       setSales(transformedSales);
     } catch (error) {
       console.error('Error fetching sales:', error);
       setSalesError(error instanceof Error ? error.message : 'Failed to fetch sales');
-      
-      // Fallback to mock data for development
-      setSales([
-        {
-          id: "SALE-001",
-          productName: "Premium Wireless Headphones",
-          buyer: "0xabcd...1234",
-          amount: "0.15 ETH",
-          date: "2024-01-20",
-          status: 'completed'
-        },
-        {
-          id: "SALE-002",
-          productName: "Smart Fitness Watch",
-          buyer: "0xefgh...5678",
-          amount: "0.08 ETH",
-          date: "2024-01-19",
-          status: 'pending'
-        },
-        {
-          id: "SALE-003",
-          productName: "Organic Coffee Beans",
-          buyer: "0xijkl...9012",
-          amount: "0.02 ETH",
-          date: "2024-01-18",
-          status: 'completed'
-        }
-      ]);
+      setSales([]);
     } finally {
       setSalesIsLoading(false);
+      isSalesFetching = false;
     }
   }, [user?.id]);
+
+  // 4. Effect Hooks
+  useEffect(() => {
+    if (isLoggedIn && user?.id) {
+      fetchProducts();
+      fetchSales();
+    }
+  }, [isLoggedIn, user?.id, fetchProducts, fetchSales]);
+
+  // 5. Performance Hooks (useCallback for other functions)
 
   const handleAddProduct = useCallback(async () => {
     if (!user?.id) {

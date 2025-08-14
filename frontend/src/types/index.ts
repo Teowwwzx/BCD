@@ -195,6 +195,7 @@ export interface CartItem {
         name: string;
         price: number;
         images?: ProductImage[];
+        stock_quantity: number;
     };
 }
 

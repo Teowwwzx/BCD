@@ -62,7 +62,8 @@ export default function ProductsPage() {
     }
     try {
       const dbId = parseInt(product.id.replace('db-', ''));
-      await addToCart(dbId, 1);
+      await addToCart(dbId, 1, product.quantity);
+
       alert(`${product.name} added to cart!`);
     } catch (err) {
       console.error('Add to cart error:', err);

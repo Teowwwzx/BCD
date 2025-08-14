@@ -1,3 +1,4 @@
+// src/app/seller/analytics/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -44,14 +45,18 @@ const SellerAnalyticsPage: React.FC = () => {
     const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
     const cutoffDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
     
-    const recentSales = sales.filter(sale => new Date(sale.date) >= cutoffDate);
-    const recentRevenue = recentSales.reduce((sum, sale) => {
+    // Only count completed orders as actual sales
+    const completedSales = sales.filter(sale => 
+      sale.status === 'completed' && new Date(sale.date) >= cutoffDate
+    );
+    
+    const recentRevenue = completedSales.reduce((sum, sale) => {
       return sum + parseFloat(sale.amount.replace(/[^0-9.]/g, ''));
     }, 0);
     
-    // Product performance
+    // Product performance (only based on completed sales)
     const productPerformance = products.map(product => {
-      const productSales = recentSales.filter(sale => sale.productName === product.name);
+      const productSales = completedSales.filter(sale => sale.productName === product.name);
       const productRevenue = productSales.reduce((sum, sale) => {
         return sum + parseFloat(sale.amount.replace(/[^0-9.]/g, ''));
       }, 0);
@@ -64,18 +69,22 @@ const SellerAnalyticsPage: React.FC = () => {
       };
     }).sort((a, b) => b.revenue - a.revenue);
     
-    // Status distribution
+    // Status distribution (all orders)
     const statusCounts = sales.reduce((acc, sale) => {
       acc[sale.status] = (acc[sale.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
     
+    // Total completed sales count (for the entire period, not just recent)
+    const totalCompletedSales = sales.filter(sale => sale.status === 'completed').length;
+    
     return {
-      recentSales: recentSales.length,
+      recentSales: completedSales.length,
       recentRevenue,
       productPerformance,
       statusCounts,
-      averageOrderValue: recentSales.length > 0 ? recentRevenue / recentSales.length : 0
+      totalCompletedSales,
+      averageOrderValue: completedSales.length > 0 ? recentRevenue / completedSales.length : 0
     };
   };
 
@@ -166,7 +175,7 @@ const SellerAnalyticsPage: React.FC = () => {
         />
         <StatCard
           title="Total Sales"
-          value={analytics.recentSales}
+          value={analytics.totalCompletedSales}
           icon="🛒"
           trend="up"
           trendValue="+8.2%"
@@ -221,12 +230,14 @@ const SellerAnalyticsPage: React.FC = () => {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Order Status Distribution</h3>
           <div className="space-y-4">
             {Object.entries(analytics.statusCounts).map(([status, count]) => {
-              const percentage = (count / totalSales) * 100;
+              const totalOrders = Object.values(analytics.statusCounts).reduce((sum, c) => sum + c, 0);
+              const percentage = totalOrders > 0 ? (count / totalOrders) * 100 : 0;
               const getStatusColor = (status: string) => {
                 switch (status) {
                   case 'completed': return 'bg-green-500';
                   case 'pending': return 'bg-yellow-500';
-                  case 'cancelled': return 'bg-red-500';
+                  // case 'cancelled': return 'bg-red-500';
+                  case 'refunded': return 'bg-red-500';
                   case 'processing': return 'bg-blue-500';
                   default: return 'bg-gray-500';
                 }
@@ -292,7 +303,8 @@ const SellerAnalyticsPage: React.FC = () => {
                     <span className={`px-2 py-1 text-xs rounded-full ${
                       sale.status === 'completed' ? 'bg-green-100 text-green-800' :
                       sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      sale.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      // sale.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      sale.status === 'refunded' ? 'bg-red-100 text-red-800' :
                       'bg-blue-100 text-blue-800'
                     }`}>
                       {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}

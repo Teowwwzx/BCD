@@ -80,8 +80,15 @@ const SellPage: React.FC = () => {
   useEffect(() => {
     if (!isLoggedIn) {
       router.push('/auth');
+      return;
     }
-  }, [isLoggedIn, router]);
+    
+    // Redirect sellers to their dashboard
+    if (user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin) {
+      router.push('/seller');
+      return;
+    }
+  }, [isLoggedIn, user?.user_role, router]);
   
   if (!isLoggedIn) {
     return (
@@ -94,9 +101,8 @@ const SellPage: React.FC = () => {
     );
   }
 
-  // Redirect sellers to their dashboard
+  // Show loading while redirecting sellers
   if (user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin) {
-    router.push('/seller');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

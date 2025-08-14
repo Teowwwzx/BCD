@@ -19,6 +19,7 @@ const sellerNavItems = [
     { href: '/seller', label: 'Dashboard', icon: '📊' },
     { href: '/seller/products', label: 'My Products', icon: '📦' },
     { href: '/seller/orders', label: 'My Orders', icon: '🛒' },
+    { href: '/seller/reviews', label: 'Reviews', icon: '⭐' },
     { href: '/seller/analytics', label: 'Analytics', icon: '📈' },
 ];
 

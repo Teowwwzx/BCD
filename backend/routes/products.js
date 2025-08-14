@@ -92,6 +92,7 @@ router.get('/', async (req, res) => {
             category,
             search,
             sortBy = 'createdAt-desc',
+            sellerId,
         } = req.query;
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -100,6 +101,9 @@ router.get('/', async (req, res) => {
         const where = {
             status: 'published',
         };
+        if (sellerId) {
+            where.sellerId = parseInt(sellerId);
+        }
         if (category && category !== 'all') {
             where.category = { name: { equals: category, mode: 'insensitive' } };
         }
