@@ -4,12 +4,11 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useSeller } from '../../hooks/useSeller';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
+import { UserRole } from '../../types';
 
 const SellPage: React.FC = () => {
   // 1. Context Hooks
-  const { isLoggedIn } = useAuth();
+  const { user, isLoggedIn } = useAuth();
   const {
     // Data
     products,
@@ -44,15 +43,21 @@ const SellPage: React.FC = () => {
   useEffect(() => {
     if (!isLoggedIn) {
       router.push('/auth');
+      return;
     }
-  }, [isLoggedIn, router]);
+    
+    // Redirect non-sellers to appropriate pages
+    if (user && user.user_role !== UserRole.Seller && user.user_role !== UserRole.Admin) {
+      router.push('/sell'); // Redirect to conversion page
+    }
+  }, [isLoggedIn, user, router]);
   
-  if (!isLoggedIn) {
+  if (!isLoggedIn || (user && user.user_role !== UserRole.Seller && user.user_role !== UserRole.Admin)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecting to login...</p>
+          <p className="mt-4 text-gray-600">Redirecting...</p>
         </div>
       </div>
     );
@@ -61,15 +66,11 @@ const SellPage: React.FC = () => {
   // Show loading state
   if (productsIsLoading || salesIsLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading seller dashboard...</p>
-          </div>
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading seller dashboard...</p>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -77,26 +78,17 @@ const SellPage: React.FC = () => {
   // Show error state
   if (productsError || salesError) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Dashboard</h2>
-            <p className="text-red-600">
-              {productsError || salesError}
-            </p>
-          </div>
-        </div>
-        <Footer />
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Dashboard</h2>
+        <p className="text-red-600">
+          {productsError || salesError}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Seller Dashboard</h1>
           <p className="text-gray-600 mt-2">Manage your products and track your sales</p>
@@ -338,7 +330,7 @@ const SellPage: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      {/* </div> */}
 
       {/* Add Product Modal */}
       {showAddProduct && (
@@ -455,7 +447,6 @@ const SellPage: React.FC = () => {
         </div>
       )}
 
-      <Footer />
     </div>
   );
 };

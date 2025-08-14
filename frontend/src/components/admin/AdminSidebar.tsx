@@ -4,8 +4,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '../../hooks/useAuth';
+import { UserRole } from '../../types';
 
-const navItems = [
+const adminNavItems = [
     { href: '/admin', label: 'Overview', icon: '📊' },
     { href: '/admin/users', label: 'Users', icon: '👥' },
     { href: '/admin/products', label: 'Products', icon: '📦' },
@@ -13,14 +15,27 @@ const navItems = [
     { href: '/admin/reviews', label: 'Reviews', icon: '⭐' },
 ];
 
+const sellerNavItems = [
+    { href: '/seller', label: 'Dashboard', icon: '📊' },
+    { href: '/seller/products', label: 'My Products', icon: '📦' },
+    { href: '/seller/orders', label: 'My Orders', icon: '🛒' },
+    { href: '/seller/analytics', label: 'Analytics', icon: '📈' },
+];
+
 const Sidebar: React.FC = () => {
     const pathname = usePathname();
+    const { user } = useAuth();
+    
+    const isAdmin = user?.user_role === UserRole.Admin;
+    const navItems = isAdmin ? adminNavItems : sellerNavItems;
+    const dashboardLink = isAdmin ? '/admin' : '/seller';
+    const brandText = isAdmin ? 'BCD Admin' : 'BCD Seller';
 
     return (
         <aside className="w-64 flex-shrink-0 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex flex-col">
             <div className="h-16 flex items-center px-6 border-b dark:border-gray-700">
-                <Link href="/admin" className="text-xl font-bold text-gray-800 dark:text-white">
-                    BCD Admin
+                <Link href={dashboardLink} className="text-xl font-bold text-gray-800 dark:text-white">
+                    {brandText}
                 </Link>
             </div>
 

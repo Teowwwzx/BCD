@@ -1,15 +1,18 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useSeller } from '../../hooks/useSeller';
+import { UserRole } from '../../types';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 
 const SellPage: React.FC = () => {
   // 1. Context Hooks
-  const { isLoggedIn } = useAuth();
+  const { user, isLoggedIn } = useAuth();
+  const [isConverting, setIsConverting] = useState(false);
+  const [conversionError, setConversionError] = useState<string | null>(null);
   const {
     // Data
     products,
@@ -40,6 +43,39 @@ const SellPage: React.FC = () => {
   
   const router = useRouter();
 
+  // Helper function to convert buyer to seller
+  const handleBecomeSellerConversion = async () => {
+    if (!user?.id) return;
+    
+    setIsConverting(true);
+    setConversionError(null);
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          user_role: 'seller'
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update user role');
+      }
+      
+      // Refresh the page to update the user context
+      window.location.reload();
+    } catch (error) {
+      console.error('Error converting to seller:', error);
+      setConversionError(error instanceof Error ? error.message : 'Failed to become a seller');
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
   // 2. Effect Hooks
   useEffect(() => {
     if (!isLoggedIn) {
@@ -54,6 +90,103 @@ const SellPage: React.FC = () => {
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Redirecting to login...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Redirect sellers to their dashboard
+  if (user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin) {
+    router.push('/seller');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirecting to seller dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show buyer-to-seller conversion screen if user is a buyer
+  if (user?.user_role === UserRole.Buyer) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <div className="mb-6">
+              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Become a Seller</h1>
+              <p className="text-gray-600 text-lg">Start selling your products on BCD Marketplace</p>
+            </div>
+            
+            <div className="mb-8">
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Earn Money</h3>
+                  <p className="text-sm text-gray-600">Sell your products and earn cryptocurrency</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Easy Setup</h3>
+                  <p className="text-sm text-gray-600">Quick and simple seller account activation</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Secure Platform</h3>
+                  <p className="text-sm text-gray-600">Blockchain-powered secure transactions</p>
+                </div>
+              </div>
+            </div>
+            
+            {conversionError && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600">{conversionError}</p>
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              <button
+                onClick={handleBecomeSellerConversion}
+                disabled={isConverting}
+                className="w-full bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg"
+              >
+                {isConverting ? (
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Converting to Seller...
+                  </span>
+                ) : (
+                  'Become a Seller'
+                )}
+              </button>
+              <button
+                onClick={() => router.push('/products')}
+                className="w-full bg-gray-100 text-gray-700 px-8 py-3 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Continue Browsing
+              </button>
+            </div>
+          </div>
+        </div>
+        <Footer />
       </div>
     );
   }

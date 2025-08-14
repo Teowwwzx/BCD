@@ -1,18 +1,25 @@
 // frontend/src/hooks/useAddresses.ts
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
+
 import { Address } from '../types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+type CreateAddressData = Omit<Address, 'id' | 'user_id'>;
+
 
 export const useAddresses = () => {
     const { user, token } = useAuth();
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchAddresses = useCallback(async () => {
         if (!user || !token) return;
         setLoading(true);
+                setError(null);
+
         try {
             const response = await fetch(`${API_BASE_URL}/addresses/user/${user.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -32,5 +39,72 @@ export const useAddresses = () => {
         fetchAddresses();
     }, [fetchAddresses]);
 
-    return { addresses, loading };
+    const createAddress = async (addressData: CreateAddressData): Promise<Address | null> => {
+        if (!user || !token) return null;
+
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch(`${API_BASE_URL}/addresses`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ ...addressData, user_id: user.id }),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Add the new address to the local state to avoid a refetch
+                setAddresses(prev => [...prev, result.data]);
+                return result.data;
+            } else {
+                throw new Error(result.error || 'Failed to create address');
+            }
+        } catch (err: any) {
+            console.error('Failed to create address', err);
+            setError(err.message);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const deleteAddress = async (addressId: number): Promise<boolean> => {
+        if (!token) return false;
+
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch(`${API_BASE_URL}/addresses/${addressId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Remove the address from the local state
+                setAddresses(prev => prev.filter(addr => addr.id !== addressId));
+                return true;
+            } else {
+                throw new Error(result.error || 'Failed to delete address');
+            }
+        } catch (err: any) {
+            console.error('Failed to delete address', err);
+            setError(err.message);
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { 
+        addresses, 
+        loading, 
+        error, 
+        refetchAddresses: fetchAddresses, 
+        createAddress, 
+        deleteAddress 
+    };
 };

@@ -49,12 +49,19 @@ const Header: React.FC = () => {
 
                     {/* Desktop Navigation */}
                     <nav className="hidden md:flex space-x-8">
-                        <Link href="/products" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
-                            Browse
-                        </Link>
-                        <Link href={isLoggedIn ? "/sell" : "/auth"} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
-                            Sell
-                        </Link>
+                        {/* Show Browse and Sell only when user is NOT logged in */}
+                        {!isLoggedIn && (
+                            <>
+                                <Link href="/products" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
+                                    Browse
+                                </Link>
+                                <Link href="/auth" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
+                                    Sell
+                                </Link>
+                            </>
+                        )}
+                        
+                        {/* Show Admin link only for admin users */}
                         {isAdmin && (
                             <Link href="/admin" className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm font-medium flex items-center">
                                 <span className="mr-1">🛡️</span> Admin
