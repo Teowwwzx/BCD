@@ -91,6 +91,7 @@ const categoriesRoutes = require('./routes/categories');
 const notificationRoutes = require('./routes/notifications');
 const statsRoutes = require('./routes/stats');
 const addressesRoutes = require('./routes/addresses');
+const paymentsRoutes = require('./routes/payments');
 
 console.log('Loading users routes...');
 app.use('/api/auth', authRoutes);
@@ -140,6 +141,10 @@ console.log('✓ Stats routes loaded');
 console.log('Loading addresses routes...');
 app.use('/api/addresses', addressesRoutes);
 console.log('✓ Addresses routes loaded');
+
+console.log('Loading payments routes...');
+app.use('/api/payments', paymentsRoutes);
+console.log('✓ Payments routes loaded');
 
 
 // Root endpoint

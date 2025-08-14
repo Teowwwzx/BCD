@@ -6,11 +6,12 @@
  *
  * METHOD   | URL               | DESCRIPTION
  * ---------|-------------------|----------------------------------
- * POST     | /                 | Create a new user.
- * GET      | /                 | Get all users (with filtering and pagination).
+ * POST     | /                 | Create a new user (admin only).
+ * GET      | /                 | Get all users (with filtering).
  * GET      | /:id              | Get a single user by their ID.
- * PUT      | /:id              | Update an existing user by their ID.
- * DELETE   | /:id              | Delete a user by their ID.
+ * PUT      | /:id              | Update an existing user.
+ * PUT      | /:id/upgrade-seller| Request seller role upgrade.
+ * DELETE   | /:id              | Delete a user.
  *
  * =================================================================
  *
@@ -343,6 +344,92 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: 'User not found.' });
         }
         console.error(`Error deleting user ${req.params.id}:`, error);
+        res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+});
+
+// ----------------------------------------------------------------
+// SELLER UPGRADE - Request seller role upgrade (requires admin approval)
+// ----------------------------------------------------------------
+router.put('/:id/upgrade-seller', async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        if (isNaN(userId)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID.' });
+        }
+
+        // Check if user exists
+        const user = await prisma.user.findUnique({
+            where: { id: userId }
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found.' });
+        }
+
+        // Check if user is already a seller or admin
+        if (user.user_role === 'seller' || user.user_role === 'admin') {
+            return res.status(400).json({ 
+                success: false, 
+                error: `User is already a ${user.user_role}.` 
+            });
+        }
+
+        // Check if user status is active
+        if (user.status !== 'active') {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'User must have active status to upgrade to seller role.' 
+            });
+        }
+
+        // Create notification for admin approval
+        const adminUsers = await prisma.user.findMany({
+            where: { user_role: 'admin' },
+            select: { id: true }
+        });
+
+        if (adminUsers.length === 0) {
+            return res.status(500).json({ 
+                success: false, 
+                error: 'No admin users found to process the request.' 
+            });
+        }
+
+        // Create notifications for all admin users
+        const notificationPromises = adminUsers.map(admin => 
+            prisma.notification.create({
+                data: {
+                    userId: admin.id,
+                    type: 'system_message',
+                    title: 'Seller Role Upgrade Request',
+                    message: `User ${user.username} (ID: ${user.id}) has requested to upgrade to seller role. Please review and approve/reject this request.`,
+                    isRead: false
+                }
+            })
+        );
+
+        await Promise.all(notificationPromises);
+
+        // Update user status to indicate pending seller approval
+        await prisma.user.update({
+            where: { id: userId },
+            data: { 
+                status: 'pending_verification',
+                updatedAt: new Date()
+            }
+        });
+
+        res.status(200).json({ 
+            success: true, 
+            data: { 
+                message: 'Seller role upgrade request submitted successfully. Admin approval is required.',
+                userId: userId,
+                status: 'pending_verification'
+            } 
+        });
+    } catch (error) {
+        console.error(`Error processing seller upgrade request for user ${req.params.id}:`, error);
         res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });

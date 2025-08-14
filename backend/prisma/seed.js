@@ -211,11 +211,368 @@ async function main() {
     console.error('❌ Error fetching or creating products from Fake Store API:', error);
   }
 
+  // Create User Addresses
+  const addresses = await Promise.all([
+    // Buyer addresses
+    prisma.user_addresses.create({
+      data: {
+        user_id: regularUsers[2].id, // buyer
+        address_type: 'shipping',
+        location_type: 'residential',
+        addr_line_1: '123 Main Street',
+        addr_line_2: 'Apt 4B',
+        city: 'New York',
+        state: 'NY',
+        postcode: '10001',
+        country: 'USA'
+      }
+    }),
+    prisma.user_addresses.create({
+      data: {
+        user_id: regularUsers[2].id, // buyer
+        address_type: 'billing',
+        location_type: 'residential',
+        addr_line_1: '123 Main Street',
+        addr_line_2: 'Apt 4B',
+        city: 'New York',
+        state: 'NY',
+        postcode: '10001',
+        country: 'USA'
+      }
+    }),
+    prisma.user_addresses.create({
+      data: {
+        user_id: regularUsers[3].id, // buyer2
+        address_type: 'shipping',
+        location_type: 'residential',
+        addr_line_1: '456 Oak Avenue',
+        city: 'Los Angeles',
+        state: 'CA',
+        postcode: '90210',
+        country: 'USA'
+      }
+    }),
+    prisma.user_addresses.create({
+      data: {
+        user_id: regularUsers[3].id, // buyer2
+        address_type: 'billing',
+        location_type: 'company',
+        addr_line_1: '789 Business Blvd',
+        addr_line_2: 'Suite 100',
+        city: 'Los Angeles',
+        state: 'CA',
+        postcode: '90211',
+        country: 'USA'
+      }
+    })
+  ]);
+
+  console.log('🏠 Created addresses:', addresses.length);
+
+  // Create Orders with Order Items
+  const orders = [];
+  const orderItems = [];
+  
+  if (createdFakeProducts.length > 0) {
+    // Order 1 - Completed order with payment
+    const order1 = await prisma.order.create({
+      data: {
+        buyer_id: regularUsers[2].id, // buyer
+        order_status: 'delivered',
+        payment_status: 'paid',
+        shippingAddressId: addresses[0].id,
+        billingAddressId: addresses[1].id,
+        subtotal: '149.98',
+        taxAmount: '12.00',
+        shippingAmount: '9.99',
+        totalAmount: '171.97'
+      }
+    });
+    orders.push(order1);
+
+    // Order items for order 1
+    const orderItem1 = await prisma.orderItem.create({
+      data: {
+        orderId: order1.id,
+        productId: createdFakeProducts[0].id,
+        seller_id: createdFakeProducts[0].sellerId,
+        quantity: 2,
+        unitPrice: createdFakeProducts[0].price,
+        totalPrice: createdFakeProducts[0].price * 2,
+        product_name: createdFakeProducts[0].name,
+        product_sku: createdFakeProducts[0].sku
+      }
+    });
+    const orderItem2 = await prisma.orderItem.create({
+      data: {
+        orderId: order1.id,
+        productId: createdFakeProducts[1].id,
+        seller_id: createdFakeProducts[1].sellerId,
+        quantity: 1,
+        unitPrice: createdFakeProducts[1].price,
+        totalPrice: createdFakeProducts[1].price,
+        product_name: createdFakeProducts[1].name,
+        product_sku: createdFakeProducts[1].sku
+      }
+    });
+    orderItems.push(orderItem1, orderItem2);
+
+    // Order 2 - Pending order
+    const order2 = await prisma.order.create({
+      data: {
+        buyer_id: regularUsers[2].id, // buyer
+        order_status: 'pending',
+        payment_status: 'pending',
+        shippingAddressId: addresses[0].id,
+        billingAddressId: addresses[1].id,
+        subtotal: '89.99',
+        taxAmount: '7.20',
+        shippingAmount: '5.99',
+        totalAmount: '103.18'
+      }
+    });
+    orders.push(order2);
+
+    const orderItem3 = await prisma.orderItem.create({
+      data: {
+        orderId: order2.id,
+        productId: createdFakeProducts[2].id,
+        seller_id: createdFakeProducts[2].sellerId,
+        quantity: 1,
+        unitPrice: createdFakeProducts[2].price,
+        totalPrice: createdFakeProducts[2].price,
+        product_name: createdFakeProducts[2].name,
+        product_sku: createdFakeProducts[2].sku
+      }
+    });
+    orderItems.push(orderItem3);
+
+    // Order 3 - Shipped order for buyer2
+    const order3 = await prisma.order.create({
+      data: {
+        buyer_id: regularUsers[3].id, // buyer2
+        order_status: 'shipped',
+        payment_status: 'paid',
+        shippingAddressId: addresses[2].id,
+        billingAddressId: addresses[3].id,
+        subtotal: '199.99',
+        taxAmount: '16.00',
+        shippingAmount: '12.99',
+        totalAmount: '228.98'
+      }
+    });
+    orders.push(order3);
+
+    const orderItem4 = await prisma.orderItem.create({
+      data: {
+        orderId: order3.id,
+        productId: createdFakeProducts[3].id,
+        seller_id: createdFakeProducts[3].sellerId,
+        quantity: 3,
+        unitPrice: createdFakeProducts[3].price,
+        totalPrice: createdFakeProducts[3].price * 3,
+        product_name: createdFakeProducts[3].name,
+        product_sku: createdFakeProducts[3].sku
+      }
+    });
+    orderItems.push(orderItem4);
+
+    // Order 4 - Failed payment order
+    const order4 = await prisma.order.create({
+      data: {
+        buyer_id: regularUsers[3].id, // buyer2
+        order_status: 'pending',
+        payment_status: 'failed',
+        shippingAddressId: addresses[2].id,
+        billingAddressId: addresses[3].id,
+        subtotal: '75.50',
+        taxAmount: '6.04',
+        shippingAmount: '4.99',
+        totalAmount: '86.53'
+      }
+    });
+    orders.push(order4);
+
+    const orderItem5 = await prisma.orderItem.create({
+      data: {
+        orderId: order4.id,
+        productId: createdFakeProducts[4].id,
+        seller_id: createdFakeProducts[4].sellerId,
+        quantity: 1,
+        unitPrice: createdFakeProducts[4].price,
+        totalPrice: createdFakeProducts[4].price,
+        product_name: createdFakeProducts[4].name,
+        product_sku: createdFakeProducts[4].sku
+      }
+    });
+    orderItems.push(orderItem5);
+  }
+
+  console.log('📦 Created orders:', orders.length);
+  console.log('📋 Created order items:', orderItems.length);
+
+  // Create Shipments
+  const shipments = [];
+  if (orders.length > 0) {
+    const shipment1 = await prisma.shipment.create({
+      data: {
+        orderId: orders[0].id, // delivered order
+        carrier: 'FedEx',
+        trackingNumber: 'FX123456789US',
+        shipping_method: 'Express',
+        shipping_cost: '9.99',
+        weight_kg: '2.5',
+        status: 'delivered',
+        notes: 'Package delivered successfully'
+      }
+    });
+    shipments.push(shipment1);
+
+    const shipment2 = await prisma.shipment.create({
+      data: {
+        orderId: orders[2].id, // shipped order
+        carrier: 'UPS',
+        trackingNumber: 'UPS987654321',
+        shipping_method: 'Ground',
+        shipping_cost: '12.99',
+        weight_kg: '3.2',
+        status: 'in_transit',
+        notes: 'Package is on the way'
+      }
+    });
+    shipments.push(shipment2);
+  }
+
+  console.log('🚚 Created shipments:', shipments.length);
+
+  // Create Payment Transactions
+  const payments = [];
+  if (orders.length > 0) {
+    // Successful payment for order 1
+    const payment1 = await prisma.paymentTransaction.create({
+      data: {
+        orderId: orders[0].id,
+        amount: orders[0].totalAmount,
+        tx_hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+        blockNumber: 18500000,
+        from_address: '0x47e179ec197488593b187f80a00eb0da91f1b9d0', // buyer wallet
+        to_address: '0x5de4111afa1a4b94908f83103eb1f1706367c2e6', // seller wallet
+        status: 'confirmed'
+      }
+    });
+    payments.push(payment1);
+
+    // Successful payment for order 3
+    const payment2 = await prisma.paymentTransaction.create({
+      data: {
+        orderId: orders[2].id,
+        amount: orders[2].totalAmount,
+        tx_hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab',
+        blockNumber: 18500100,
+        from_address: '0x47e179ec197488593b187f80a00eb0da91f1b9d0', // buyer wallet
+        to_address: '0x5de4111afa1a4b94908f83103eb1f1706367c2e6', // seller wallet
+        status: 'confirmed'
+      }
+    });
+    payments.push(payment2);
+
+    // Failed payment for order 4
+    const payment3 = await prisma.paymentTransaction.create({
+      data: {
+        orderId: orders[3].id,
+        amount: orders[3].totalAmount,
+        tx_hash: '0xfailed1234567890abcdef1234567890abcdef1234567890abcdef12345',
+        blockNumber: 18500200,
+        from_address: '0x47e179ec197488593b187f80a00eb0da91f1b9d0', // buyer wallet
+        to_address: '0x5de4111afa1a4b94908f83103eb1f1706367c2e6', // seller wallet
+        status: 'failed'
+      }
+    });
+    payments.push(payment3);
+
+    // Pending payment for order 2
+    const payment4 = await prisma.paymentTransaction.create({
+      data: {
+        orderId: orders[1].id,
+        amount: orders[1].totalAmount,
+        tx_hash: '0xpending1234567890abcdef1234567890abcdef1234567890abcdef123456',
+        blockNumber: 18500300,
+        from_address: '0x47e179ec197488593b187f80a00eb0da91f1b9d0', // buyer wallet
+        to_address: '0x5de4111afa1a4b94908f83103eb1f1706367c2e6', // seller wallet
+        status: 'pending'
+      }
+    });
+    payments.push(payment4);
+  }
+
+  console.log('💳 Created payment transactions:', payments.length);
+
+  // Create Notifications
+  const notifications = [];
+  if (orders.length > 0 && adminUsers.length > 0) {
+    // Order notifications
+    const notification1 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[2].id, // buyer
+        type: 'order_update',
+        title: 'Order Delivered',
+        message: `Your order #${orders[0].id} has been delivered successfully!`,
+        related_order_id: orders[0].id,
+        isRead: true
+      }
+    });
+    notifications.push(notification1);
+
+    const notification2 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[3].id, // buyer2
+        type: 'order_update',
+        title: 'Order Shipped',
+        message: `Your order #${orders[2].id} has been shipped and is on its way!`,
+        related_order_id: orders[2].id,
+        isRead: false
+      }
+    });
+    notifications.push(notification2);
+
+    const notification3 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[3].id, // buyer2
+        type: 'payment_received',
+        title: 'Payment Failed',
+        message: `Payment for order #${orders[3].id} has failed. Please try again.`,
+        related_order_id: orders[3].id,
+        isRead: false
+      }
+    });
+    notifications.push(notification3);
+
+    // Admin notification for seller upgrade request (example)
+    const notification4 = await prisma.notification.create({
+      data: {
+        userId: adminUsers[0].id, // admin
+        type: 'system_message',
+        title: 'Seller Upgrade Request',
+        message: 'A user has requested to upgrade to seller role. Please review.',
+        isRead: false
+      }
+    });
+    notifications.push(notification4);
+  }
+
+  console.log('🔔 Created notifications:', notifications.length);
+
   console.log('\n🎉 Database seeding completed successfully!');
   console.log('\n📊 Summary:');
   console.log(`   👥 Users: ${adminUsers.length + regularUsers.length} (${adminUsers.length} admins, ${regularUsers.length} regular)`);
   console.log(`   📂 Categories: ${categories.length}`);
   console.log(`   📦 Products: ${createdFakeProducts.length}`);
+  console.log(`   🏠 Addresses: ${addresses.length}`);
+  console.log(`   📋 Orders: ${orders.length}`);
+  console.log(`   📦 Order Items: ${orderItems.length}`);
+  console.log(`   🚚 Shipments: ${shipments.length}`);
+  console.log(`   💳 Payment Transactions: ${payments.length}`);
+  console.log(`   🔔 Notifications: ${notifications.length}`);
   console.log('\n🔑 Admin Credentials:');
   console.log('   Username: admin | Wallet: 0x1234567890123456789012345678901234567890');
   console.log('   Username: admin2 | Wallet: 0x2345678901234567890123456789012345678901');
