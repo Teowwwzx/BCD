@@ -140,7 +140,7 @@ export default function CartPage() {
             <div className="lg:col-span-2">
               <div className="bg-white rounded-lg shadow-sm">
                 <div className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">Cart Items</h2>
+                  <h2 className="text-xl font-semibold mb-4 text-black" style={{color: 'black !important'}}>Cart Items</h2>
                   <div className="space-y-4">
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
@@ -158,8 +158,8 @@ export default function CartPage() {
                           )}
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{item.product.name}</h3>
-                          <p className="text-sm text-gray-600">Product ID: {item.product.id}</p>
+                          <h3 className="font-semibold text-black" style={{color: '#000000 !important'}}>{item.product.name}</h3>
+                          <p className="text-sm text-black" style={{color: '#000000 !important'}}>Product ID: {item.product.id}</p>
                           <span className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full mt-2">
                             Electronics
                           </span>
@@ -176,7 +176,7 @@ export default function CartPage() {
                               '-'
                             )}
                           </button>
-                          <span className="w-8 text-center font-medium">{item.quantity}</span>
+                          <span className="w-8 text-center font-medium text-black" style={{color: '#000000 !important'}}>{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                             className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -190,10 +190,10 @@ export default function CartPage() {
                           </button>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-blue-600">
+                          <p className="font-semibold text-black" style={{color: '#000000 !important'}}>
                             ${(Number(item.product.price) || 0).toFixed(2)}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-black" style={{color: '#000000 !important'}}>
                             Total: ${((Number(item.product.price) || 0) * item.quantity).toFixed(2)}
                           </p>
                         </div>
@@ -217,24 +217,24 @@ export default function CartPage() {
             {/* Order Summary */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
-                <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+                <h2 className="text-xl font-semibold mb-4 text-black" style={{color: 'black !important'}}>Order Summary</h2>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium">${calculateTotal()}</span>
+                    <span className="text-black" style={{color: '#000000 !important'}}>Subtotal</span>
+                    <span className="font-medium text-black" style={{color: '#000000 !important'}}>${calculateTotal()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Platform Fee (2.5%)</span>
-                    <span className="font-medium">${(parseFloat(calculateTotal()) * 0.025).toFixed(2)}</span>
+                    <span className="text-black" style={{color: '#000000 !important'}}>Platform Fee (2.5%)</span>
+                    <span className="font-medium text-black" style={{color: '#000000 !important'}}>${(parseFloat(calculateTotal()) * 0.025).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Shipping</span>
-                    <span className="font-medium">Free</span>
+                    <span className="text-black" style={{color: '#000000 !important'}}>Shipping</span>
+                    <span className="font-medium text-black" style={{color: '#000000 !important'}}>Free</span>
                   </div>
                   <div className="border-t pt-3">
                     <div className="flex justify-between text-lg font-semibold">
-                      <span>Total</span>
-                      <span className="text-blue-600">
+                      <span className="text-black" style={{color: '#000000 !important'}}>Total</span>
+                      <span className="text-black" style={{color: '#000000 !important'}}>
                         ${(parseFloat(calculateTotal()) * 1.025).toFixed(2)}
                       </span>
                     </div>
@@ -262,7 +262,8 @@ export default function CartPage() {
                   <div className="text-center">
                     <a
                       href="/products"
-                      className="text-blue-600 hover:text-blue-700 text-sm"
+                      className="text-black hover:text-blue-700 text-sm"
+                      style={{color: '#000000 !important'}}
                     >
                       Continue Shopping
                     </a>
@@ -287,8 +288,8 @@ export default function CartPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                      <h4 className="text-sm font-medium text-green-800">Secure Checkout</h4>
-                      <p className="text-xs text-green-700 mt-1">
+                      <h4 className="text-sm font-medium text-black" style={{color: '#000000 !important'}}>Secure Checkout</h4>
+                      <p className="text-xs text-black mt-1" style={{color: '#000000 !important'}}>
                         All transactions are secured by blockchain technology and smart contracts.
                       </p>
                     </div>
