@@ -3,15 +3,16 @@
  * API DOCUMENTATION: /api/auth
  * =================================================================
  *
- * METHOD   | URL               | DESCRIPTION
- * ---------|-------------------|----------------------------------
- * POST     | /register         | Register a new user account.
- * POST     | /login            | Login with email and password.
- * GET      | /profile          | Get current user profile (protected).
- * POST     | /verify-email     | Verify email with token.
- * POST     | /resend-verification | Resend verification email.
- * POST     | /forgot-password  | Request password reset email.
- * POST     | /reset-password   | Reset password with token.
+ * METHOD   | URL                    | DESCRIPTION
+ * ---------|------------------------|----------------------------------
+ * POST     | /register              | Register a new user account.
+ * POST     | /login                 | Login with email and password.
+ * GET      | /profile               | Get current user profile (protected).
+ * POST     | /verify-email          | Verify email with token.
+ * POST     | /resend-verification   | Resend verification email.
+ * POST     | /forgot-password       | Request password reset email.
+ * POST     | /reset-password        | Reset password with token.
+ * POST     | /direct-reset-password | Reset password directly without token.
  *
  * =================================================================
  *
@@ -514,5 +515,81 @@ router.post('/reset-password', async (req, res) => {
         });
     }
 });
+
+
+// ----------------------------------------------------------------
+// DIRECT RESET PASSWORD - Reset password without token
+// ----------------------------------------------------------------
+router.post('/direct-reset-password', async (req, res) => {
+    try {
+        const { email, newPassword, confirmPassword } = req.body;
+
+        // Validate required fields
+        if (!email || !newPassword || !confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email, new password, and confirm password are required.'
+            });
+        }
+
+        // Check that passwords match
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Passwords do not match.'
+            });
+        }
+
+        // Validate password length
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 6 characters long.'
+            });
+        }
+
+        // Find user by email
+        const user = await prisma.user.findUnique({
+            where: { email }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found with this email address.'
+            });
+        }
+
+        // Hash the new password
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+        // Update user's password in the database
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                passwordHash,
+                // Clear any existing reset tokens
+                passwordResetToken: null,
+                passwordResetExpires: null
+            }
+        });
+
+        res.json({
+            success: true,
+            data: {
+                message: 'Password updated successfully. You can now login with your new password.'
+            }
+        });
+    } catch (error) {
+        console.error('Error updating password:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error.'
+        });
+    }
+});
+
+
 
 module.exports = router;

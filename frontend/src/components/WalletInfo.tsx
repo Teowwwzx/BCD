@@ -1,5 +1,5 @@
 // src/components/WalletInfo.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 interface WalletInfoProps {
@@ -12,8 +12,12 @@ export const WalletInfo: React.FC<WalletInfoProps> = ({ className = '' }) => {
     walletBalance, 
     isWalletLoading, 
     connectWallet, 
+    updateWallet,
     disconnectWallet 
   } = useAuth();
+  
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleConnectWallet = async () => {
     try {
@@ -24,8 +28,34 @@ export const WalletInfo: React.FC<WalletInfoProps> = ({ className = '' }) => {
     }
   };
 
-  const handleDisconnectWallet = () => {
-    disconnectWallet();
+  const handleUpdateWallet = async () => {
+    setIsUpdating(true);
+    setUpdateMessage(null);
+    
+    try {
+      const result = await updateWallet();
+      if (result.success) {
+        setUpdateMessage({ type: 'success', text: 'Wallet updated successfully!' });
+        // Clear success message after 3 seconds
+        setTimeout(() => setUpdateMessage(null), 3000);
+      } else {
+        setUpdateMessage({ type: 'error', text: result.error || 'Failed to update wallet' });
+      }
+    } catch (error) {
+      console.error('Failed to update wallet:', error);
+      setUpdateMessage({ type: 'error', text: 'Failed to update wallet' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDisconnectWallet = async () => {
+    try {
+      await disconnectWallet();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+      // You could add toast notification here
+    }
   };
 
   const formatAddress = (address: string) => {
@@ -98,10 +128,30 @@ export const WalletInfo: React.FC<WalletInfoProps> = ({ className = '' }) => {
           </div>
         </div>
         
-        <div className="pt-2 border-t border-[#30214f]">
+        {/* Update/Error Message */}
+        {updateMessage && (
+          <div className={`p-2 text-sm font-pixel text-center ${
+            updateMessage.type === 'success' 
+              ? 'text-[#00f5c3] bg-green-900/20 border border-green-600' 
+              : 'text-red-400 bg-red-900/20 border border-red-600'
+          }`}>
+            {updateMessage.text}
+          </div>
+        )}
+        
+        <div className="pt-2 border-t border-[#30214f] space-y-2">
+          <button
+            onClick={handleUpdateWallet}
+            disabled={isUpdating || isWalletLoading}
+            className="w-full font-pixel text-sm text-black bg-[#00f5c3] px-4 py-2 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isUpdating ? '[ UPDATING... ]' : '[ UPDATE_WALLET ]'}
+          </button>
+          
           <button
             onClick={handleDisconnectWallet}
-            className="w-full font-pixel text-sm text-white bg-red-600 px-4 py-2 hover:bg-red-500 transition-colors"
+            disabled={isWalletLoading}
+            className="w-full font-pixel text-sm text-white bg-red-600 px-4 py-2 hover:bg-red-500 transition-colors disabled:opacity-50"
           >
             [ DISCONNECT_WALLET ]
           </button>

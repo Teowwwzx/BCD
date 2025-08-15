@@ -43,4 +43,24 @@ router.post('/', async (req, res) => {
     }
 });
 
+// DELETE /api/wallets/user/:userId - Delete wallet for a user
+router.delete('/user/:userId', async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const wallet = await prisma.user_wallets.findUnique({
+            where: { user_id: userId }
+        });
+        if (!wallet) {
+            return res.status(404).json({ success: false, error: 'Wallet not found for this user.' });
+        }
+        await prisma.user_wallets.delete({
+            where: { user_id: userId }
+        });
+        res.json({ success: true, message: 'Wallet disconnected successfully' });
+    } catch (error) {
+        console.error('Error deleting wallet:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
 module.exports = router;
