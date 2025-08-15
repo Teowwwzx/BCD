@@ -147,24 +147,6 @@ const AddressForm = ({ onSave, onCancel }: { onSave: (address: Omit<Address, 'id
 };
 
 export default function CheckoutPage() {
-  // 2. Context Hooks
-  const router = useRouter();
-  const { user, isLoggedIn, authIsLoading } = useAuth();
-  const { cartItems, clearCart } = useCart();
-  const { addresses, createAddress, loading: addressesLoading, error: addressesError } = useAddresses();
-  const {
-    processGatewayPayment,
-    processWalletPayment,
-    paymentsIsLoading,
-    paymentsError,
-    checkWalletConnection,
-    getWalletBalance,
-    walletAddress,
-  } = usePayments();
-  
-  const { isWalletConnected, connectWallet } = useAuth();
-  const { calculateAllShippingCosts } = useShippingMethods();
-
   // 1. State Hooks
   const [currentStep, setCurrentStep] = useState<CheckoutStep>(CheckoutStep.SHIPPING);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
@@ -179,6 +161,19 @@ export default function CheckoutPage() {
   const [orderConfirmation, setOrderConfirmation] = useState<any>(null);
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [transactionStatus, setTransactionStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+
+  // 2. Context Hooks
+  const router = useRouter();
+  const { user, isLoggedIn, authIsLoading, isWalletConnected, connectWallet, walletAddress, walletBalance } = useAuth();
+  const { cartItems, clearCart } = useCart();
+  const { addresses, createAddress, loading: addressesLoading, error: addressesError } = useAddresses();
+  const {
+    processGatewayPayment,
+    processWalletPayment,
+    paymentsIsLoading,
+    paymentsError,
+  } = usePayments();
+  const { calculateAllShippingCosts } = useShippingMethods();
 
   // 3. Effect Hooks
   useEffect(() => {
@@ -307,9 +302,8 @@ export default function CheckoutPage() {
         return;
       }
       
-      const balance = await getWalletBalance();
-      if (!balance || parseFloat(balance) < calculateTotal()) {
-        alert(`Insufficient wallet balance. Required: ${calculateTotal()} ETH, Available: ${balance || '0'} ETH`);
+      if (!walletBalance || parseFloat(walletBalance) < calculateTotal()) {
+        alert(`Insufficient wallet balance. Required: ${calculateTotal()} ETH, Available: ${walletBalance || '0'} ETH`);
         return;
       }
     }
@@ -319,11 +313,17 @@ export default function CheckoutPage() {
     setPaymentResult(null);
     
     try {
+      // For marketplace payments, we need to identify the seller
+      // In a multi-seller marketplace, this would need more complex logic
+      // For now, we'll use the first item's seller or default to seller ID 1
+      const sellerId = cartItems.length > 0 && cartItems[0].product?.sellerId ? cartItems[0].product.sellerId : 1;
+      
       const checkoutData: CheckoutData = {
         shippingAddressId: selectedAddressId,
         billingAddressId: selectedAddressId, // Using same address for billing
         shippingMethodId: selectedShippingMethodId,
         paymentMethod: selectedPaymentMethod,
+        sellerId: sellerId, // Required for wallet payments
         couponCode: couponCode || undefined,
         items: cartItems.map(item => ({
           productId: item.productId,
@@ -343,7 +343,7 @@ export default function CheckoutPage() {
         });
       } else {
         // Process wallet payment
-        const marketplaceWallet = process.env.NEXT_PUBLIC_MARKETPLACE_WALLET || '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b';
+        const marketplaceWallet = process.env.NEXT_PUBLIC_MARKETPLACE_WALLET || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
         result = await processWalletPayment({
           amount: calculateTotal().toString(),
           recipientAddress: marketplaceWallet,
@@ -369,7 +369,7 @@ export default function CheckoutPage() {
     } finally {
       setIsProcessingOrder(false);
     }
-  }, [selectedAddressId, selectedPaymentMethod, selectedShippingMethodId, couponCode, cartItems, processGatewayPayment, processWalletPayment, clearCart, isWalletConnected, getWalletBalance, calculateTotal]);
+  }, [selectedAddressId, selectedPaymentMethod, selectedShippingMethodId, couponCode, cartItems, processGatewayPayment, processWalletPayment, clearCart, isWalletConnected, walletBalance, calculateTotal]);
 
   const canProceedToNext = useMemo(() => {
     switch (currentStep) {
@@ -408,10 +408,18 @@ export default function CheckoutPage() {
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-semibold">{address.addr_line_1}</p>
-                        {address.addr_line_2 && <p className="text-gray-600">{address.addr_line_2}</p>}
-                        <p className="text-gray-600">{address.city}, {address.state} {address.postcode}</p>
-                        <p className="text-gray-600">{address.country}</p>
+                        <p className={`font-semibold ${
+                          selectedAddressId === address.id ? 'text-blue-900' : 'text-gray-900'
+                        }`}>{address.addr_line_1}</p>
+                        {address.addr_line_2 && <p className={`${
+                          selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
+                        }`}>{address.addr_line_2}</p>}
+                        <p className={`${
+                          selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
+                        }`}>{address.city}, {address.state} {address.postcode}</p>
+                        <p className={`${
+                          selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
+                        }`}>{address.country}</p>
                       </div>
                       {address.is_default && (
                         <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">

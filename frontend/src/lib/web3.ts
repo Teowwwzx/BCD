@@ -58,6 +58,9 @@ export const connectWallet = async () => {
   }
   
   try {
+    // Request account access - this will trigger MetaMask popup
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+    
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
@@ -92,6 +95,22 @@ export const connectWallet = async () => {
   }
 };
 
+
+/**
+ * Gets the ETH balance for a given wallet address
+ */
+export const getWalletBalance = async (address: string): Promise<string> => {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    // Fallback to local provider for server-side or no wallet scenarios
+    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
+    const balance = await provider.getBalance(address);
+    return ethers.formatEther(balance);
+  }
+  
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const balance = await provider.getBalance(address);
+  return ethers.formatEther(balance);
+};
 
 // =================================================================
 // HELPER FUNCTIONS

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { connectWallet, parseEther, formatEther } from '../lib/web3';
+import { parseEther, formatEther } from '../lib/web3';
 import { useAuth } from './useAuth';
 import { PaymentTransaction, PaymentMethod, TransactionStatus, CheckoutData } from '../types';
 
@@ -41,7 +41,7 @@ export const usePayments = () => {
   });
 
   // 2. Context Hooks
-  const { token, user, walletAddress } = useAuth();
+  const { token, user, walletAddress, connectWallet } = useAuth();
 
   // Helper function to make API calls
   const makeApiCall = useCallback(async (url: string, options: RequestInit = {}) => {
@@ -67,7 +67,7 @@ export const usePayments = () => {
     setState(prev => ({ ...prev, paymentsIsLoading: true, paymentsError: null }));
     
     try {
-      const url = orderId ? `/api/payments?order_id=${orderId}` : '/api/payments';
+      const url = orderId ? `/payments?order_id=${orderId}` : '/payments';
       const data = await makeApiCall(url);
       
       setState(prev => ({
@@ -91,7 +91,7 @@ export const usePayments = () => {
   // Get payment by ID
   const getPaymentById = useCallback(async (paymentId: number): Promise<PaymentTransaction> => {
     try {
-      const data = await makeApiCall(`/api/payments/${paymentId}`);
+      const data = await makeApiCall(`/payments/${paymentId}`);
       return data.payment;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch payment';
@@ -106,7 +106,7 @@ export const usePayments = () => {
     
     try {
       // First, create the order via checkout endpoint
-      const checkoutResponse = await makeApiCall('/api/orders/checkout', {
+      const checkoutResponse = await makeApiCall('/orders/checkout', {
         method: 'POST',
         body: JSON.stringify({
           buyerId: user?.id,
@@ -121,7 +121,7 @@ export const usePayments = () => {
       });
 
       // Then process the payment with the created order ID
-      const paymentResponse = await makeApiCall('/api/payments/gateway', {
+      const paymentResponse = await makeApiCall('/payments/gateway', {
         method: 'POST',
         body: JSON.stringify({
           orderId: checkoutResponse.order.id,
@@ -163,13 +163,16 @@ export const usePayments = () => {
     setState(prev => ({ ...prev, paymentsIsLoading: true, paymentsError: null }));
     
     try {
-      // Ensure wallet is connected
+      // Ensure wallet is connected and request accounts
       if (!walletAddress) {
-        const walletConnection = await connectWallet();
-        if (!walletConnection) {
+        const result = await connectWallet();
+        if (!result || !result.address) {
           throw new Error('Please connect your wallet to continue');
         }
       }
+      
+      // Ensure we have access to accounts
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
 
       // Check if we have ethereum provider
       if (typeof window === 'undefined' || !window.ethereum) {
@@ -179,6 +182,12 @@ export const usePayments = () => {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const userAddress = await signer.getAddress();
+
+      // Validate and use the recipient address directly (no ENS resolution needed on local network)
+      if (!ethers.isAddress(paymentData.recipientAddress)) {
+        throw new Error('Invalid recipient address format');
+      }
+      const resolvedRecipientAddress = paymentData.recipientAddress;
 
       // Check wallet balance
       const balance = await provider.getBalance(userAddress);
@@ -190,7 +199,7 @@ export const usePayments = () => {
 
       // Estimate gas for the transaction
       const gasEstimate = await provider.estimateGas({
-        to: paymentData.recipientAddress,
+        to: resolvedRecipientAddress,
         value: amountInWei,
       });
 
@@ -207,7 +216,7 @@ export const usePayments = () => {
 
       // Create and send the transaction
       const transaction = {
-        to: paymentData.recipientAddress,
+        to: resolvedRecipientAddress,
         value: amountInWei,
         gasLimit: gasEstimate,
         gasPrice: gasPrice,
@@ -227,7 +236,7 @@ export const usePayments = () => {
       const actualGasCost = actualGasUsed * (receipt.gasPrice || gasPrice);
 
       // First, create the order via checkout endpoint
-      const checkoutResponse = await makeApiCall('/api/orders/checkout', {
+      const checkoutResponse = await makeApiCall('/orders/checkout', {
         method: 'POST',
         body: JSON.stringify({
           buyerId: user?.id,
@@ -235,12 +244,14 @@ export const usePayments = () => {
           billingAddressId: paymentData.checkoutData.billingAddressId,
           shippingMethodId: paymentData.checkoutData.shippingMethodId,
           paymentMethod: 'wallet',
+          fromUserId: user?.id,
+          toUserId: paymentData.checkoutData.sellerId || 1, // Default to seller ID 1 if not provided
           couponCode: paymentData.checkoutData.couponCode,
         }),
       });
 
       // Then create payment record via API
-      const apiData = await makeApiCall('/api/payments/wallet-transfer', {
+      const apiData = await makeApiCall('/payments/wallet-transfer', {
         method: 'POST',
         body: JSON.stringify({
           orderId: checkoutResponse.order.id,
@@ -248,7 +259,7 @@ export const usePayments = () => {
           txHash: receipt.hash,
           blockNumber: receipt.blockNumber,
           fromAddress: userAddress,
-          toAddress: paymentData.recipientAddress,
+          toAddress: resolvedRecipientAddress,
           gasUsed: Number(actualGasUsed),
           gasPriceGwei: formatEther(receipt.gasPrice || gasPrice),
         }),
@@ -309,7 +320,7 @@ export const usePayments = () => {
   // Update payment status
   const updatePaymentStatus = useCallback(async (paymentId: number, status: TransactionStatus): Promise<PaymentTransaction> => {
     try {
-      const data = await makeApiCall(`/api/payments/${paymentId}`, {
+      const data = await makeApiCall(`/payments/${paymentId}`, {
         method: 'PUT',
         body: JSON.stringify({ status }),
       });

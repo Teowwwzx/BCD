@@ -3,13 +3,14 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { User } from '../types'; // Using the corrected types from index.ts
-import { connectWallet as web3ConnectWallet } from '../lib/web3';
+import { ethers } from 'ethers';
+import { User } from '../types';
+import { connectWallet as web3ConnectWallet, getWalletBalance } from '../lib/web3';
 
 // Define the shape of the authentication credentials for the login function
 interface AuthCredentials {
   email: string;
-  password?: string; // Password can be optional for wallet-only sign-in later
+  password?: string;
 }
 
 // Define the context shape
@@ -19,11 +20,14 @@ interface AuthContextType {
   authIsLoading: boolean;
   isLoggedIn: boolean;
   walletAddress: string | null;
+  walletBalance: string | null;
   isWalletConnected: boolean;
+  isWalletLoading: boolean;
   error: string | null;
   login: (credentials: AuthCredentials) => Promise<boolean>;
   logout: () => void;
   connectWallet: () => Promise<string | null>;
+  disconnectWallet: () => void;
   clearError: () => void;
 }
 
@@ -35,14 +39,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [authIsLoading, setAuthIsLoading] = useState(true); // True initially to check storage
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+  const [isWalletLoading, setIsWalletLoading] = useState(false);
+  const [authIsLoading, setAuthIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // API base URL from environment variables
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-  // Effect to rehydrate state from localStorage on initial load
+  const fetchBalance = useCallback(async (address: string) => {
+    setIsWalletLoading(true);
+    try {
+      const balance = await getWalletBalance(address);
+      setWalletBalance(balance);
+    } catch (err) {
+      console.error("Failed to fetch wallet balance", err);
+      setWalletBalance(null); // Clear balance on error
+    } finally {
+      setIsWalletLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     try {
       const savedToken = localStorage.getItem('token');
@@ -55,33 +72,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       if (savedWallet) {
         setWalletAddress(savedWallet);
+        fetchBalance(savedWallet); // Fetch balance for persisted wallet
       }
     } catch (e) {
       console.error("Failed to parse auth data from localStorage", e);
-      // Clear potentially corrupted storage
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('walletAddress');
+      localStorage.clear(); // Clear corrupted storage
     } finally {
       setAuthIsLoading(false);
     }
-  }, []);
+  }, [fetchBalance]);
 
-  // Effect to handle wallet events (account or network changes)
   useEffect(() => {
     const ethereum = (window as any).ethereum;
     if (ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length === 0) {
-          // MetaMask is locked or user has disconnected all accounts
           console.log('Wallet disconnected.');
           setWalletAddress(null);
+          setWalletBalance(null);
           localStorage.removeItem('walletAddress');
         } else if (accounts[0] !== walletAddress) {
-          // User has switched accounts
           console.log('Wallet account changed.');
-          setWalletAddress(accounts[0]);
-          localStorage.setItem('walletAddress', accounts[0]);
+          const newAddress = accounts[0];
+          setWalletAddress(newAddress);
+          localStorage.setItem('walletAddress', newAddress);
+          fetchBalance(newAddress);
         }
       };
 
@@ -90,24 +105,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ethereum.removeListener('accountsChanged', handleAccountsChanged);
       };
     }
-  }, [walletAddress]); // Removed router dependency
+  }, [walletAddress, fetchBalance]);
 
   const connectWallet = useCallback(async (): Promise<string | null> => {
-    setAuthIsLoading(true);
+    setIsWalletLoading(true);
     setError(null);
     try {
       const { address } = await web3ConnectWallet();
       setWalletAddress(address);
       localStorage.setItem('walletAddress', address);
+      await fetchBalance(address);
       return address;
     } catch (err: any) {
       setError(err.message || 'Failed to connect wallet.');
       console.error(err);
       return null;
     } finally {
-      setAuthIsLoading(false);
+      setIsWalletLoading(false);
     }
-  }, []);
+  }, [fetchBalance]);
+
+  const disconnectWallet = () => {
+    setWalletAddress(null);
+    setWalletBalance(null);
+    localStorage.removeItem('walletAddress');
+    console.log('Wallet disconnected.');
+  };
 
   const login = async (credentials: AuthCredentials): Promise<boolean> => {
     setAuthIsLoading(true);
@@ -152,7 +175,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setToken(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    // Keep wallet connection intact - don't clear wallet address
+    // Note: We keep the wallet connected on logout by default
     router.push('/auth');
   };
 
@@ -164,11 +187,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     authIsLoading,
     isLoggedIn: !!token,
     walletAddress,
+    walletBalance,
     isWalletConnected: !!walletAddress,
+    isWalletLoading,
     error,
     login,
     logout,
     connectWallet,
+    disconnectWallet,
     clearError,
   };
 

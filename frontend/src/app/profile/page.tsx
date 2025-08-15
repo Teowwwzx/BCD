@@ -10,6 +10,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import Modal from '../../components/Modal'; // Import the Modal component
 import OrderTracker from '../../components/OrderTracker';
+import WalletInfo from '../../components/WalletInfo';
 
 export default function ProfilePage() {
   // --- 1. HOOKS ---
@@ -170,6 +171,12 @@ export default function ProfilePage() {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* WALLET INFORMATION SECTION */}
+            <div>
+              <h2 className="font-pixel text-xl text-white mb-6">// WALLET_INFORMATION</h2>
+              <WalletInfo className="bg-[#1a1a2e] border-2 border-[#30214f] hover:border-[#00f5c3] transition-colors" />
             </div>
 
             {/* Order History Section (No changes needed here) */}

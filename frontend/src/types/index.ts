@@ -195,6 +195,7 @@ export interface CartItem {
         id: number;
         name: string;
         price: number;
+        sellerId: number; // Required for identifying the seller in marketplace transactions
         images?: ProductImage[];
         stock_quantity: number;
     };
@@ -273,6 +274,7 @@ export interface CheckoutData {
     billingAddressId: number;
     shippingMethodId: number;
     paymentMethod: PaymentMethod;
+    sellerId?: number; // Required for wallet payments to identify the recipient
     couponCode?: string;
     items?: {
         productId: number;

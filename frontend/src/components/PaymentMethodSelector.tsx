@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { PaymentMethod } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { usePayments } from '../hooks/usePayments';
@@ -29,25 +29,9 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
 }) => {
   // 1. State Hooks
   const [hoveredMethod, setHoveredMethod] = useState<PaymentMethod | null>(null);
-  const [walletBalance, setWalletBalance] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   
-  const { walletAddress, isWalletConnected, connectWallet } = useAuth();
-  const { getWalletBalance } = usePayments();
-
-  // Fetch wallet balance when wallet is connected
-  useEffect(() => {
-    const fetchBalance = async () => {
-      if (isWalletConnected && walletAddress) {
-        const balance = await getWalletBalance();
-        setWalletBalance(balance);
-      } else {
-        setWalletBalance(null);
-      }
-    };
-    
-    fetchBalance();
-  }, [isWalletConnected, walletAddress, getWalletBalance]);
+  const { walletAddress, isWalletConnected, connectWallet, walletBalance: authWalletBalance } = useAuth();
 
   const handleWalletConnect = async () => {
     setIsConnecting(true);
@@ -165,8 +149,8 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                   {option.method === PaymentMethod.Wallet && isWalletConnected && walletAddress && (
                     <div className="mt-2">
                       <p className="text-xs text-green-600">Connected: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</p>
-                      {walletBalance && (
-                        <p className="text-xs text-gray-600">Balance: {parseFloat(walletBalance).toFixed(4)} ETH</p>
+                      {authWalletBalance && (
+                        <p className="text-xs text-gray-600">Balance: {parseFloat(authWalletBalance).toFixed(4)} ETH</p>
                       )}
                     </div>
                   )}
@@ -210,7 +194,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                       <div>
                         <p className="font-medium mb-1">Web3 Wallet Required</p>
                         <p>Make sure you have a Web3 wallet (like MetaMask) connected and sufficient funds for the transaction and gas fees.</p>
-                        {isWalletConnected && walletBalance && parseFloat(walletBalance) < 0.01 && (
+                        {isWalletConnected && authWalletBalance && parseFloat(authWalletBalance) < 0.01 && (
                           <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded">
                             <p className="text-xs text-yellow-800">⚠️ Low wallet balance. Make sure you have enough ETH for the transaction and gas fees.</p>
                           </div>

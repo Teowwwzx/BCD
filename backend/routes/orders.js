@@ -439,8 +439,8 @@ router.post('/checkout', async (req, res) => {
 
          // Get wallet addresses for both users
          const [fromWallet, toWallet] = await Promise.all([
-           tx.wallet.findUnique({ where: { userId: parseInt(fromUserId) } }),
-           tx.wallet.findUnique({ where: { userId: parseInt(toUserId) } })
+           tx.user_wallets.findUnique({ where: { user_id: parseInt(fromUserId) } }),
+           tx.user_wallets.findUnique({ where: { user_id: parseInt(toUserId) } })
          ]);
 
          if (!fromWallet || !toWallet) {
