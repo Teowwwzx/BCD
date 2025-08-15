@@ -42,6 +42,8 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
         user_role: 'admin',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
             wallet_addr: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
@@ -62,6 +64,7 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'admin',
         status: 'active',
+        isEmailVerified: true,
         user_wallets: {
           create: {
             wallet_addr: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
@@ -86,6 +89,8 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150',
         user_role: 'seller',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
             wallet_addr: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Vitalik Buterin's address for example
@@ -106,6 +111,8 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
         user_role: 'seller',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
             wallet_addr: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
@@ -126,6 +133,8 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
         user_role: 'buyer',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
             wallet_addr: '0x976EA74026E726554dB657fA54763abd0C3a0aa9',
@@ -146,6 +155,8 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'buyer',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
             wallet_addr: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
