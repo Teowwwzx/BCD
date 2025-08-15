@@ -16,8 +16,11 @@ export default function AuthPage() {
     confirmPassword: ''
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
-  const { isLoggedIn, login, authIsLoading, error, clearError, user } = useAuth();
+  const { isLoggedIn, login, authIsLoading, error, clearError, user, resendVerificationEmail } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -86,28 +89,62 @@ export default function AuthPage() {
     }
 
     if (isLogin) {
-      const success = await login({
-        email: formData.email,
-        password: formData.password
-      });
-      // Login function handles navigation internally
+      try {
+        const success = await login({
+          email: formData.email,
+          password: formData.password
+        });
+        // Login function handles navigation internally
+      } catch (err: any) {
+        // Check if the error is related to email verification
+        if (err.message && err.message.includes('verify your email')) {
+          setShowVerificationMessage(true);
+          setVerificationEmail(formData.email);
+          setErrors({});
+        } else {
+          setErrors({ general: err.message || 'Login failed' });
+        }
+      }
     } else {
-      // For registration, we'll need to implement a separate registration API call
-      // For now, show an error that registration is not implemented
-      setErrors({ general: 'Registration functionality is not yet implemented. Please contact an administrator.' });
+      // Redirect to dedicated signup page
+      router.push('/signup');
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setIsResendingVerification(true);
+    try {
+      const result = await resendVerificationEmail(verificationEmail);
+      if (result.success) {
+        // Show success message briefly
+        setErrors({ general: 'Verification email sent successfully! Please check your inbox.' });
+        setTimeout(() => setErrors({}), 5000);
+      } else {
+        setErrors({ general: result.error || 'Failed to resend verification email' });
+      }
+    } catch (err) {
+      setErrors({ general: 'Failed to resend verification email' });
+    } finally {
+      setIsResendingVerification(false);
     }
   };
 
   const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: ''
-    });
-    setErrors({});
-    clearError();
+    if (isLogin) {
+      // Redirect to dedicated signup page instead of toggling inline
+      router.push('/signup');
+    } else {
+      setIsLogin(true);
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+      });
+      setErrors({});
+      setShowVerificationMessage(false);
+      clearError();
+    }
   };
 
 
@@ -131,7 +168,35 @@ export default function AuthPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {(error || errors.general) && (
+            {showVerificationMessage && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-sm text-yellow-800">
+                  <p className="font-medium mb-2">Email Verification Required</p>
+                  <p className="mb-3">
+                    Please check your email ({verificationEmail}) and click the verification link to activate your account.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={isResendingVerification}
+                      className="text-sm bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 disabled:opacity-50"
+                    >
+                      {isResendingVerification ? 'Sending...' : 'Resend Verification Email'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowVerificationMessage(false)}
+                      className="text-sm text-yellow-600 hover:text-yellow-700 underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {(error || errors.general) && !showVerificationMessage && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-600">{error || errors.general}</p>
               </div>
@@ -242,7 +307,11 @@ export default function AuthPage() {
 
           {isLogin && (
             <div className="mt-4 text-center">
-              <button className="text-sm text-blue-600 hover:text-blue-700">
+              <button 
+                type="button"
+                onClick={() => router.push('/forgot-password')}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
                 Forgot your password?
               </button>
             </div>

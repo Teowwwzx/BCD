@@ -42,9 +42,11 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
         user_role: 'admin',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
-            wallet_addr: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+            wallet_addr: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
             is_verified: true,
           }
         }
@@ -62,9 +64,10 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'admin',
         status: 'active',
+        isEmailVerified: true,
         user_wallets: {
           create: {
-            wallet_addr: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+            wallet_addr: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
             is_verified: true,
           }
         }
@@ -86,9 +89,11 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150',
         user_role: 'seller',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
-            wallet_addr: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a', // Vitalik Buterin's address for example
+            wallet_addr: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Vitalik Buterin's address for example
             is_verified: true,
           }
         }
@@ -106,6 +111,14 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
         user_role: 'seller',
         status: 'active',
+        isEmailVerified: true,
+
+        user_wallets: {
+          create: {
+            wallet_addr: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+            is_verified: true,
+          }
+        }
       }
     }),
     prisma.user.create({
@@ -120,9 +133,11 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
         user_role: 'buyer',
         status: 'active',
+        isEmailVerified: true,
+
         user_wallets: {
           create: {
-            wallet_addr: '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+            wallet_addr: '0x976EA74026E726554dB657fA54763abd0C3a0aa9',
             is_verified: true,
           }
         }
@@ -140,6 +155,14 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'buyer',
         status: 'active',
+        isEmailVerified: true,
+
+        user_wallets: {
+          create: {
+            wallet_addr: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+            is_verified: true,
+          }
+        }
       }
     })
   ]);
@@ -338,6 +361,60 @@ async function main() {
   ]);
 
   console.log('🏠 Created addresses:', addresses.length);
+
+  // Create Shipping Methods
+  const shippingMethods = await Promise.all([
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Standard Delivery',
+        description: 'Regular delivery within 5-7 business days',
+        baseRate: 8.99,
+        perKgRate: 1.50,
+        perKmRate: 0.05,
+        minDeliveryDays: 5,
+        maxDeliveryDays: 7,
+        isActive: true
+      }
+    }),
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Express Delivery',
+        description: 'Fast delivery within 1-2 business days',
+        baseRate: 15.99,
+        perKgRate: 2.50,
+        perKmRate: 0.10,
+        minDeliveryDays: 1,
+        maxDeliveryDays: 2,
+        isActive: true
+      }
+    }),
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Economy Delivery',
+        description: 'Budget-friendly delivery within 7-10 business days',
+        baseRate: 4.99,
+        perKgRate: 1.00,
+        perKmRate: 0.03,
+        minDeliveryDays: 7,
+        maxDeliveryDays: 10,
+        isActive: true
+      }
+    }),
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Overnight Delivery',
+        description: 'Next business day delivery',
+        baseRate: 25.99,
+        perKgRate: 3.00,
+        perKmRate: 0.15,
+        minDeliveryDays: 1,
+        maxDeliveryDays: 1,
+        isActive: true
+      }
+    })
+  ]);
+
+  console.log('🚚 Created shipping methods:', shippingMethods.length);
 
   // Create Orders with Order Items
   const orders = [];
@@ -760,6 +837,7 @@ async function main() {
   console.log(`   📂 Categories: ${categories.length}`);
   console.log(`   📦 Products: ${createdFakeProducts.length}`);
   console.log(`   🏠 Addresses: ${addresses.length}`);
+  console.log(`   🚚 Shipping Methods: ${shippingMethods.length}`);
   console.log(`   📋 Orders: ${orders.length}`);
   console.log(`   📦 Order Items: ${orderItems.length}`);
   console.log(`   🚚 Shipments: ${shipments.length}`);
@@ -767,13 +845,14 @@ async function main() {
   console.log(`   🔔 Notifications: ${notifications.length}`);
   console.log(`   ⭐ Product Reviews: ${reviews.length}`);
   console.log(`   💝 Wishlist Items: ${wishlistItems.length}`);
-  console.log('\n🔑 Admin Credentials:');
-  console.log('   Username: admin | Wallet: 0x1234567890123456789012345678901234567890');
-  console.log('   Username: admin2 | Wallet: 0x2345678901234567890123456789012345678901');
-  console.log('   Username: seller | Wallet: 0x3456789012345678901234567890123456789012');
-  console.log('   Username: buyer | Wallet: 0x4567890123456789012345678901234567890123');
-  console.log('   Username: buyer2 | Wallet: 0x5678901234567890123456789012345678901234');
-  console.log('   Password: 123123123');
+  console.log('\n🔑 User Credentials:');
+  console.log('   Username: admin | Wallet: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+  console.log('   Username: admin2 | Wallet: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
+  console.log('   Username: seller | Wallet: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
+  console.log('   Username: seller2 | Wallet: 0x90F79bf6EB2c4f870365E785982E1f101E93b906');
+  console.log('   Username: buyer | Wallet: 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65');
+  console.log('   Username: buyer2 | Wallet: 0x976EA74026E726554dB657fA54763abd0C3a0aa9');
+  console.log('   Password: 123123');
 
 }
 

@@ -8,6 +8,9 @@ import { useProfile } from '../../hooks/useProfile';
 import type { Order, User } from '../../types';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import Modal from '../../components/Modal'; // Import the Modal component
+import OrderTracker from '../../components/OrderTracker';
+import WalletInfo from '../../components/WalletInfo';
 
 export default function ProfilePage() {
   // --- 1. HOOKS ---
@@ -24,6 +27,8 @@ export default function ProfilePage() {
     l_name: '',
     phone: '',
   });
+
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // --- 3. EFFECTS ---
   useEffect(() => {
@@ -168,16 +173,37 @@ export default function ProfilePage() {
               )}
             </div>
 
+            {/* WALLET INFORMATION SECTION */}
+            <div>
+              <h2 className="font-pixel text-xl text-white mb-6">// WALLET_INFORMATION</h2>
+              <WalletInfo className="bg-[#1a1a2e] border-2 border-[#30214f] hover:border-[#00f5c3] transition-colors" />
+            </div>
+
             {/* Order History Section (No changes needed here) */}
             {profile.user_role !== 'admin' && (
               <div>
                 <h2 className="font-pixel text-xl text-white mb-6">// ORDER_HISTORY</h2>
                 <div className="space-y-4">
-                  {orders.length > 0 ? orders.map((order: Order) => (
-                    <div key={order.id} className="p-4 border-2 border-[#30214f]">
-                      {/* ... order details ... */}
-                    </div>
-                  )) : (
+                  {orders.length > 0 ? (
+                    orders.map((order: Order) => (
+                      <div
+                        key={order.id}
+                        className="p-4 border-2 border-[#30214f] hover:border-[#00f5c3] cursor-pointer transition-colors"
+                        onClick={() => setSelectedOrder(order)} // Set the selected order on click
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-white">ORDER_ID: {order.uuid.substring(0, 8)}</p>
+                            <p className="text-sm text-gray-400">DATE: {formatDate(order.createdAt)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-pixel text-[#00f5c3]">${(Number(order.totalAmount) || 0).toFixed(2)}</p>
+                            <p className="text-xs text-yellow-400">{order.order_status?.toUpperCase()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
                     <p>NO_ORDERS_FOUND</p>
                   )}
                 </div>

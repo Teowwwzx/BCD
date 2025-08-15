@@ -6,6 +6,8 @@
  * METHOD   | URL               | DESCRIPTION
  * ---------|-------------------|----------------------------------
  * POST     | /                 | Create a new payment and transaction.
+ * POST     | /gateway          | Process payment via payment gateway.
+ * POST     | /wallet-transfer  | Process wallet-to-wallet payment.
  * GET      | /                 | Get all payments (with filtering).
  * GET      | /:id              | Get a single payment by ID.
  * PUT      | /:id              | Update payment status.
@@ -15,7 +17,7 @@
  *
  * REQUEST/RESPONSE FORMATS
  *
- * --- POST / ---
+ * --- POST / (Direct Transaction) ---
  * Request Body:
  * {
  *   "orderId": 123,
@@ -24,6 +26,26 @@
  *   "blockNumber": 12345678,
  *   "from_address": "0xabc123...",
  *   "to_address": "0xdef456..."
+ * }
+ *
+ * --- POST /gateway (Payment Gateway) ---
+ * Request Body:
+ * {
+ *   "orderId": 123,
+ *   "amount": "99.99",
+ *   "paymentMethod": "stripe",
+ *   "paymentToken": "tok_1234567890",
+ *   "customerEmail": "customer@example.com"
+ * }
+ *
+ * --- POST /wallet-transfer (Wallet to Wallet) ---
+ * Request Body:
+ * {
+ *   "orderId": 123,
+ *   "amount": "99.99",
+ *   "fromUserId": 1,
+ *   "toUserId": 2,
+ *   "description": "Payment for order #123"
  * }
  *
  * --- PUT /:id ---
@@ -134,6 +156,268 @@ router.post('/', async (req, res) => {
         res.status(201).json({ success: true, data: payment });
     } catch (error) {
         console.error('Error creating payment:', error);
+        res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+});
+
+// ----------------------------------------------------------------
+// PAYMENT GATEWAY - Process payment via payment gateway (Stripe)
+// ----------------------------------------------------------------
+router.post('/gateway', async (req, res) => {
+    try {
+        const {
+            orderId,
+            amount,
+            paymentMethod = 'stripe',
+            paymentToken,
+            customerEmail
+        } = req.body;
+
+        // Validate required fields
+        if (!orderId || !amount || !paymentToken) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Order ID, amount, and payment token are required.' 
+            });
+        }
+
+        // Validate orderId format
+        const orderIdInt = parseInt(orderId);
+        if (isNaN(orderIdInt)) {
+            return res.status(400).json({ success: false, error: 'Invalid order ID format.' });
+        }
+
+        // Validate amount format
+        const amountDecimal = parseFloat(amount);
+        if (isNaN(amountDecimal) || amountDecimal <= 0) {
+            return res.status(400).json({ success: false, error: 'Invalid amount format. Must be a positive number.' });
+        }
+
+        // Check if order exists
+        const order = await prisma.order.findUnique({
+            where: { id: orderIdInt },
+            include: {
+                buyer: { select: { id: true, username: true, email: true } }
+            }
+        });
+
+        if (!order) {
+            return res.status(404).json({ success: false, error: 'Order not found.' });
+        }
+
+        // Check if payment already exists for this order
+        const existingPayment = await prisma.paymentTransaction.findFirst({
+            where: { orderId: orderIdInt }
+        });
+
+        if (existingPayment) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Payment already exists for this order.' 
+            });
+        }
+
+        // Simulate payment gateway processing (Stripe integration would go here)
+        // For now, we'll create a mock gateway response
+        const gatewayResponse = {
+            success: true,
+            transactionId: `gw_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            gatewayStatus: 'succeeded',
+            processingFee: (amountDecimal * 0.029 + 0.30).toFixed(2) // 2.9% + $0.30
+        };
+
+        // Create payment transaction record
+        const payment = await prisma.paymentTransaction.create({
+            data: {
+                orderId: orderIdInt,
+                amount: amountDecimal.toString(),
+                tx_hash: gatewayResponse.transactionId,
+                blockNumber: null, // Not applicable for gateway payments
+                from_address: customerEmail || order.buyer.email,
+                to_address: 'gateway_merchant_account',
+                status: gatewayResponse.success ? 'confirmed' : 'failed',
+                payment_method: paymentMethod,
+                gateway_response: JSON.stringify(gatewayResponse),
+                processing_fee: gatewayResponse.processingFee,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            include: {
+                order: {
+                    include: {
+                        buyer: { select: { id: true, username: true } }
+                    }
+                }
+            }
+        });
+
+        // Update order payment status
+        await prisma.order.update({
+            where: { id: orderIdInt },
+            data: {
+                payment_status: gatewayResponse.success ? 'paid' : 'failed',
+                updatedAt: new Date()
+            }
+        });
+
+        res.status(201).json({ 
+            success: true, 
+            data: {
+                payment,
+                gateway: {
+                    transactionId: gatewayResponse.transactionId,
+                    status: gatewayResponse.gatewayStatus,
+                    processingFee: gatewayResponse.processingFee
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error processing gateway payment:', error);
+        res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+});
+
+// ----------------------------------------------------------------
+// WALLET TRANSFER - Process wallet-to-wallet payment
+// ----------------------------------------------------------------
+router.post('/wallet-transfer', async (req, res) => {
+    try {
+        const {
+            orderId,
+            amount,
+            fromUserId,
+            toUserId,
+            description = 'Wallet transfer payment'
+        } = req.body;
+
+        // Validate required fields
+        if (!orderId || !amount || !fromUserId || !toUserId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Order ID, amount, from user ID, and to user ID are required.' 
+            });
+        }
+
+        // Validate numeric fields
+        const orderIdInt = parseInt(orderId);
+        const fromUserIdInt = parseInt(fromUserId);
+        const toUserIdInt = parseInt(toUserId);
+        const amountDecimal = parseFloat(amount);
+
+        if (isNaN(orderIdInt) || isNaN(fromUserIdInt) || isNaN(toUserIdInt)) {
+            return res.status(400).json({ success: false, error: 'Invalid ID format.' });
+        }
+
+        if (isNaN(amountDecimal) || amountDecimal <= 0) {
+            return res.status(400).json({ success: false, error: 'Invalid amount format. Must be a positive number.' });
+        }
+
+        if (fromUserIdInt === toUserIdInt) {
+            return res.status(400).json({ success: false, error: 'Cannot transfer to the same user.' });
+        }
+
+        // Check if order exists and belongs to the from user
+        const order = await prisma.order.findUnique({
+            where: { id: orderIdInt },
+            include: {
+                buyer: { select: { id: true, username: true } }
+            }
+        });
+
+        if (!order) {
+            return res.status(404).json({ success: false, error: 'Order not found.' });
+        }
+
+        if (order.buyer_id !== fromUserIdInt) {
+            return res.status(403).json({ success: false, error: 'Order does not belong to the specified user.' });
+        }
+
+        // Check if payment already exists for this order
+        const existingPayment = await prisma.paymentTransaction.findFirst({
+            where: { orderId: orderIdInt }
+        });
+
+        if (existingPayment) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Payment already exists for this order.' 
+            });
+        }
+
+        // Get wallet addresses for both users
+        const fromWallet = await prisma.user_wallets.findUnique({
+            where: { user_id: fromUserIdInt }
+        });
+
+        const toWallet = await prisma.user_wallets.findUnique({
+            where: { user_id: toUserIdInt }
+        });
+
+        if (!fromWallet) {
+            return res.status(404).json({ success: false, error: 'Sender wallet not found.' });
+        }
+
+        if (!toWallet) {
+            return res.status(404).json({ success: false, error: 'Recipient wallet not found.' });
+        }
+
+        // Simulate wallet balance check (in a real implementation, you'd check actual wallet balance)
+        // For now, we'll assume the transfer is successful
+        const transferId = `wallet_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Create payment transaction record
+        const payment = await prisma.paymentTransaction.create({
+            data: {
+                orderId: orderIdInt,
+                amount: amountDecimal.toString(),
+                tx_hash: transferId,
+                blockNumber: null, // Not applicable for wallet transfers
+                from_address: fromWallet.wallet_addr,
+                to_address: toWallet.wallet_addr,
+                status: 'confirmed', // Assuming instant transfer
+                payment_method: 'wallet_transfer',
+                gateway_response: JSON.stringify({
+                    transferId,
+                    fromUserId: fromUserIdInt,
+                    toUserId: toUserIdInt,
+                    description
+                }),
+                processing_fee: '0.00', // No fee for wallet transfers
+                createdAt: new Date(),
+                updatedAt: new Date()
+            },
+            include: {
+                order: {
+                    include: {
+                        buyer: { select: { id: true, username: true } }
+                    }
+                }
+            }
+        });
+
+        // Update order payment status
+        await prisma.order.update({
+            where: { id: orderIdInt },
+            data: {
+                payment_status: 'paid',
+                updatedAt: new Date()
+            }
+        });
+
+        res.status(201).json({ 
+            success: true, 
+            data: {
+                payment,
+                transfer: {
+                    transferId,
+                    fromWallet: fromWallet.wallet_addr,
+                    toWallet: toWallet.wallet_addr,
+                    description
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error processing wallet transfer:', error);
         res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });

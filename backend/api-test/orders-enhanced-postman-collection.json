@@ -1,0 +1,382 @@
+{
+  "info": {
+    "name": "Orders Enhanced API - BCD Marketplace",
+    "description": "Complete test collection for enhanced order management including checkout with shipping and payment integration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Enhanced Checkout",
+      "item": [
+        {
+          "name": "Complete Checkout - Gateway Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 1,\n  \"shippingAddressId\": 1,\n  \"billingAddressId\": 1,\n  \"shippingMethodId\": 1,\n  \"paymentMethod\": \"gateway\",\n  \"paymentToken\": \"tok_visa_4242424242424242\",\n  \"customerEmail\": \"customer@example.com\",\n  \"couponCode\": \"SAVE10\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "checkout"]
+            },
+            "description": "Complete checkout process with gateway payment, shipping calculation, and coupon application"
+          }
+        },
+        {
+          "name": "Complete Checkout - No Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 2,\n  \"shippingAddressId\": 2,\n  \"billingAddressId\": 2,\n  \"shippingMethodId\": 2,\n  \"paymentMethod\": \"gateway\",\n  \"paymentToken\": \"tok_mastercard_5555555555554444\",\n  \"customerEmail\": \"buyer2@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "checkout"]
+            },
+            "description": "Checkout without coupon code"
+          }
+        },
+        {
+          "name": "Checkout - Missing Required Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 1,\n  \"shippingAddressId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "checkout"]
+            },
+            "description": "Test validation - missing required fields"
+          }
+        },
+        {
+          "name": "Checkout - Empty Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 999,\n  \"shippingAddressId\": 1,\n  \"billingAddressId\": 1,\n  \"shippingMethodId\": 1,\n  \"paymentMethod\": \"gateway\",\n  \"paymentToken\": \"tok_visa_4242424242424242\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "checkout"]
+            },
+            "description": "Test checkout with empty cart (user 999 should have no cart items)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order Management",
+      "item": [
+        {
+          "name": "Create Order (Legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Legacy order creation from cart"
+          }
+        },
+        {
+          "name": "Get All Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Retrieve all orders"
+          }
+        },
+        {
+          "name": "Get Orders with Filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders?buyer_id=1&order_status=pending&payment_status=paid&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"],
+              "query": [
+                {
+                  "key": "buyer_id",
+                  "value": "1"
+                },
+                {
+                  "key": "order_status",
+                  "value": "pending"
+                },
+                {
+                  "key": "payment_status",
+                  "value": "paid"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get orders with filtering and pagination"
+          }
+        },
+        {
+          "name": "Get Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "1"]
+            },
+            "description": "Get detailed order information by ID"
+          }
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_status\": \"processing\",\n  \"payment_status\": \"paid\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "1"]
+            },
+            "description": "Update order and payment status"
+          }
+        },
+        {
+          "name": "Update Order - Processing to Shipped",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_status\": \"shipped\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "1"]
+            },
+            "description": "Update order status to shipped"
+          }
+        },
+        {
+          "name": "Update Order - Complete Order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_status\": \"delivered\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "1"]
+            },
+            "description": "Mark order as delivered/completed"
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_status\": \"cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "2"]
+            },
+            "description": "Cancel an order"
+          }
+        },
+        {
+          "name": "Delete Order",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders/999",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "999"]
+            },
+            "description": "Soft delete an order (sets deleted_at timestamp)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Testing",
+      "item": [
+        {
+          "name": "Invalid Order ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders/99999",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "99999"]
+            },
+            "description": "Test with non-existent order ID"
+          }
+        },
+        {
+          "name": "Invalid Shipping Method",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 1,\n  \"shippingAddressId\": 1,\n  \"billingAddressId\": 1,\n  \"shippingMethodId\": 99999,\n  \"paymentMethod\": \"gateway\",\n  \"paymentToken\": \"tok_visa_4242424242424242\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "checkout"]
+            },
+            "description": "Test checkout with invalid shipping method ID"
+          }
+        },
+        {
+          "name": "Invalid Address ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 1,\n  \"shippingAddressId\": 99999,\n  \"billingAddressId\": 1,\n  \"shippingMethodId\": 1,\n  \"paymentMethod\": \"gateway\",\n  \"paymentToken\": \"tok_visa_4242424242424242\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "checkout"]
+            },
+            "description": "Test checkout with invalid shipping address ID"
+          }
+        },
+        {
+          "name": "Missing Payment Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": 1,\n  \"shippingAddressId\": 1,\n  \"billingAddressId\": 1,\n  \"shippingMethodId\": 1,\n  \"paymentMethod\": \"gateway\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "checkout"]
+            },
+            "description": "Test gateway payment without payment token"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "description": "Base URL for the BCD Marketplace API"
+    }
+  ]
+}

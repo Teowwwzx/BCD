@@ -91,40 +91,11 @@ export default function CartPage() {
     }
 
     setCheckoutLoading(true);
+    
+    // Navigate to checkout page where the actual order creation and payment will be handled
     router.push('/checkout');
-
-    try {
-      const response = await fetch('http://localhost:5000/api/orders/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          buyerId: user?.id || 1,
-          shippingAddress: 'Digital delivery', // For digital products
-          paymentMethod: 'ETH'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Show success message and redirect
-        const successMessage = `Checkout successful! ${data.orderCount} orders created. Total: $${data.totalAmount.toFixed(2)}`;
-        if (window.confirm(`${successMessage}\n\nWould you like to view your orders?`)) {
-          router.push('/orders');
-        } else {
-          window.location.reload(); // Refresh cart to show empty state
-        }
-      } else {
-        alert(`Checkout failed: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-      alert('An error occurred during checkout. Please try again.');
-    } finally {
-      setCheckoutLoading(false);
-    }
+    
+    setCheckoutLoading(false);
   };
 
   return (

@@ -11,6 +11,9 @@
     "test:coverage": "jest --coverage",
     "test:api": "jest tests/",
     "test:contracts": "npx hardhat test",
+    "db:generate": "npx prisma generate",
+    "db:migrate": "npx prisma migrate dev",
+    "db:deploy": "npx prisma migrate deploy",
     "seed": "node prisma/seed.js",
     "seed-by-sql": "node prisma/seed-sql.js",
     "db:reset": "npx prisma migrate reset --force && npm run seed",
@@ -35,7 +38,8 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "node-fetch": "^3.3.2",
-    "prisma": "^6.13.0"
+    "prisma": "^6.13.0",
+    "resend": "^6.0.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",

@@ -190,10 +190,12 @@ export interface CartItem {
     userId: number;
     productId: number;
     quantity: number;
+    weight?: number;
     product: {
         id: number;
         name: string;
         price: number;
+        sellerId: number; // Required for identifying the seller in marketplace transactions
         images?: ProductImage[];
         stock_quantity: number;
     };
@@ -216,3 +218,85 @@ export interface DashboardStats {
 // =================================================================
 
 export type Theme = 'light' | 'dark';
+
+// =================================================================
+// PAYMENT & SHIPPING TYPES
+// =================================================================
+
+export enum PaymentMethod {
+    Gateway = 'gateway',
+    Wallet = 'wallet'
+}
+
+export enum TransactionStatus {
+    Pending = 'pending',
+    Confirmed = 'confirmed',
+    Failed = 'failed'
+}
+
+export interface PaymentTransaction {
+    id: number;
+    orderId: number;
+    amount: string;
+    tx_hash?: string | null;
+    blockNumber?: number | null;
+    gasUsed?: number | null;
+    gas_price_gwei?: string | null;
+    from_address?: string | null;
+    to_address?: string | null;
+    status: TransactionStatus;
+    confirmation_count?: number | null;
+    payment_method?: PaymentMethod | null;
+    gateway_transaction_id?: string | null;
+    gateway_response?: any | null;
+    processing_fee?: string | null;
+    createdAt: string;
+    confirmed_at?: string | null;
+}
+
+export interface ShippingMethod {
+    id: number;
+    name: string;
+    description?: string | null;
+    base_cost: string;
+    cost_per_kg?: string | null;
+    cost_per_km?: string | null;
+    estimated_days_min: number;
+    estimated_days_max: number;
+    is_active: boolean;
+    trackingAvailable?: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CheckoutData {
+    shippingAddressId: number;
+    billingAddressId: number;
+    shippingMethodId: number;
+    paymentMethod: PaymentMethod;
+    sellerId?: number; // Required for wallet payments to identify the recipient
+    couponCode?: string;
+    items?: {
+        productId: number;
+        quantity: number;
+        price: number;
+    }[];
+    // Gateway payment fields
+    gatewayToken?: string;
+    // Wallet payment fields
+    fromAddress?: string;
+    toAddress?: string;
+    txHash?: string;
+    blockNumber?: number;
+    gasUsed?: number;
+    gasPriceGwei?: string;
+}
+
+export interface OrderCalculation {
+    subtotal: number;
+    taxAmount: number;
+    shippingAmount: number;
+    discountAmount: number;
+    totalAmount: number;
+    processingFee?: number;
+}

@@ -34,6 +34,7 @@ const Header: React.FC = () => {
     const { cartCount } = useCart();
 
     const isAdmin = user?.user_role === UserRole.Admin;
+    const isSeller = user?.user_role === UserRole.Seller || user?.user_role === UserRole.Admin;
 
     return (
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 transition-colors">
@@ -60,6 +61,13 @@ const Header: React.FC = () => {
                                     Sell
                                 </Link>
                             </>
+                        )}
+                        
+                        {/* Show Seller Dashboard link for sellers and admins */}
+                        {isSeller && (
+                            <Link href="/seller" className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 text-sm font-medium flex items-center">
+                                <span className="mr-1">📊</span> Seller Dashboard
+                            </Link>
                         )}
                         
                         {/* Show Admin link only for admin users */}
@@ -110,6 +118,9 @@ const Header: React.FC = () => {
                                         <div className='py-1'>
                                             <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">My Account</Link>
                                             <Link href="/orders" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">My Orders</Link>
+                                            {isSeller && (
+                                                <Link href="/seller" className="block px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700">Seller Dashboard</Link>
+                                            )}
                                         </div>
                                         <div className="border-t border-gray-200 dark:border-gray-700 py-1">
                                             {isWalletConnected && walletAddress ? (
