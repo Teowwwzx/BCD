@@ -106,6 +106,12 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
         user_role: 'seller',
         status: 'active',
+        user_wallets: {
+          create: {
+            wallet_addr: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+            is_verified: true,
+          }
+        }
       }
     }),
     prisma.user.create({
@@ -122,7 +128,7 @@ async function main() {
         status: 'active',
         user_wallets: {
           create: {
-            wallet_addr: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+            wallet_addr: '0x976EA74026E726554dB657fA54763abd0C3a0aa9',
             is_verified: true,
           }
         }
@@ -140,6 +146,12 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'buyer',
         status: 'active',
+        user_wallets: {
+          create: {
+            wallet_addr: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+            is_verified: true,
+          }
+        }
       }
     })
   ]);
@@ -822,13 +834,14 @@ async function main() {
   console.log(`   🔔 Notifications: ${notifications.length}`);
   console.log(`   ⭐ Product Reviews: ${reviews.length}`);
   console.log(`   💝 Wishlist Items: ${wishlistItems.length}`);
-  console.log('\n🔑 Admin Credentials:');
+  console.log('\n🔑 User Credentials:');
   console.log('   Username: admin | Wallet: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
   console.log('   Username: admin2 | Wallet: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
   console.log('   Username: seller | Wallet: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
+  console.log('   Username: seller2 | Wallet: 0x90F79bf6EB2c4f870365E785982E1f101E93b906');
   console.log('   Username: buyer | Wallet: 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65');
-  console.log('   Username: buyer2 | Wallet: 0x5678901234567890123456789012345678901234');
-  console.log('   Password: 123123123');
+  console.log('   Username: buyer2 | Wallet: 0x976EA74026E726554dB657fA54763abd0C3a0aa9');
+  console.log('   Password: 123123');
 
 }
 
