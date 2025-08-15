@@ -152,9 +152,10 @@ export default function ResetPassword() {
               <input
                 type="email"
                 id="email"
+                name="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
                   errors.email ? 'border-red-300' : 'border-gray-300'
                 }`}
                 placeholder="Enter your email address"
@@ -174,7 +175,7 @@ export default function ResetPassword() {
                   name="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Enter your new password"
@@ -209,7 +210,7 @@ export default function ResetPassword() {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
                     errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Confirm your new password"
