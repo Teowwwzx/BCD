@@ -378,16 +378,16 @@ router.post('/calculate', async (req, res) => {
     }
 
     // Calculate shipping cost
-    let totalCost = parseFloat(shippingMethod.baseRate);
+    let totalCost = parseFloat(shippingMethod.base_rate);
 
     // Add weight-based cost
-    if (shippingMethod.perKgRate && totalWeight > 0) {
-      totalCost += parseFloat(shippingMethod.perKgRate) * parseFloat(totalWeight);
+    if (shippingMethod.per_kg_rate && totalWeight > 0) {
+      totalCost += parseFloat(shippingMethod.per_kg_rate) * parseFloat(totalWeight);
     }
 
     // Add distance-based cost
-    if (shippingMethod.perKmRate && distance > 0) {
-      totalCost += parseFloat(shippingMethod.perKmRate) * parseFloat(distance);
+    if (shippingMethod.per_km_rate && distance > 0) {
+      totalCost += parseFloat(shippingMethod.per_km_rate) * parseFloat(distance);
     }
 
     // Round to 2 decimal places
@@ -400,15 +400,15 @@ router.post('/calculate', async (req, res) => {
           id: shippingMethod.id,
           name: shippingMethod.name,
           description: shippingMethod.description,
-          minDeliveryDays: shippingMethod.minDeliveryDays,
-          maxDeliveryDays: shippingMethod.maxDeliveryDays
+          min_delivery_days: shippingMethod.minDeliveryDays,
+          max_delivery_days: shippingMethod.maxDeliveryDays
         },
         calculation: {
-          baseRate: parseFloat(shippingMethod.baseRate),
-          weightCost: shippingMethod.perKgRate ? parseFloat(shippingMethod.perKgRate) * parseFloat(totalWeight) : 0,
-          distanceCost: shippingMethod.perKmRate ? parseFloat(shippingMethod.perKmRate) * parseFloat(distance) : 0,
-          totalCost,
-          totalWeight: parseFloat(totalWeight),
+          base_rate: parseFloat(shippingMethod.base_rate),
+          weight_cost: shippingMethod.per_kg_rate ? parseFloat(shippingMethod.per_kg_rate) * parseFloat(totalWeight) : 0,
+          distance_cost: shippingMethod.per_km_rate ? parseFloat(shippingMethod.per_km_rate) * parseFloat(distance) : 0,
+          total_cost: totalCost,
+          total_weight: parseFloat(totalWeight),
           distance: parseFloat(distance)
         }
       }

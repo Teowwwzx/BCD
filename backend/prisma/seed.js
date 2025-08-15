@@ -339,6 +339,60 @@ async function main() {
 
   console.log('🏠 Created addresses:', addresses.length);
 
+  // Create Shipping Methods
+  const shippingMethods = await Promise.all([
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Standard Delivery',
+        description: 'Regular delivery within 5-7 business days',
+        baseRate: 8.99,
+        perKgRate: 1.50,
+        perKmRate: 0.05,
+        minDeliveryDays: 5,
+        maxDeliveryDays: 7,
+        isActive: true
+      }
+    }),
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Express Delivery',
+        description: 'Fast delivery within 1-2 business days',
+        baseRate: 15.99,
+        perKgRate: 2.50,
+        perKmRate: 0.10,
+        minDeliveryDays: 1,
+        maxDeliveryDays: 2,
+        isActive: true
+      }
+    }),
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Economy Delivery',
+        description: 'Budget-friendly delivery within 7-10 business days',
+        baseRate: 4.99,
+        perKgRate: 1.00,
+        perKmRate: 0.03,
+        minDeliveryDays: 7,
+        maxDeliveryDays: 10,
+        isActive: true
+      }
+    }),
+    prisma.shippingMethod.create({
+      data: {
+        name: 'Overnight Delivery',
+        description: 'Next business day delivery',
+        baseRate: 25.99,
+        perKgRate: 3.00,
+        perKmRate: 0.15,
+        minDeliveryDays: 1,
+        maxDeliveryDays: 1,
+        isActive: true
+      }
+    })
+  ]);
+
+  console.log('🚚 Created shipping methods:', shippingMethods.length);
+
   // Create Orders with Order Items
   const orders = [];
   const orderItems = [];
@@ -760,6 +814,7 @@ async function main() {
   console.log(`   📂 Categories: ${categories.length}`);
   console.log(`   📦 Products: ${createdFakeProducts.length}`);
   console.log(`   🏠 Addresses: ${addresses.length}`);
+  console.log(`   🚚 Shipping Methods: ${shippingMethods.length}`);
   console.log(`   📋 Orders: ${orders.length}`);
   console.log(`   📦 Order Items: ${orderItems.length}`);
   console.log(`   🚚 Shipments: ${shipments.length}`);
