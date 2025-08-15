@@ -1,5 +1,6 @@
 // backend/prisma/seed.js
 
+require('dotenv').config();
 const { PrismaClient, Prisma } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
@@ -217,12 +218,12 @@ async function main() {
   console.log(`   📂 Categories: ${categories.length}`);
   console.log(`   📦 Products: ${createdFakeProducts.length}`);
   console.log('\n🔑 Admin Credentials:');
-  console.log('   Username: admin | Wallet: 0x1234567890123456789012345678901234567890');
-  console.log('   Username: admin2 | Wallet: 0x2345678901234567890123456789012345678901');
-  console.log('   Username: seller | Wallet: 0x3456789012345678901234567890123456789012');
-  console.log('   Username: buyer | Wallet: 0x4567890123456789012345678901234567890123');
-  console.log('   Username: buyer2 | Wallet: 0x5678901234567890123456789012345678901234');
-  console.log('   Password: 123123123');
+  console.log('   Username: admin | No wallet');
+  console.log('   Username: admin2 | No wallet');
+  console.log('   Username: seller | No wallet');
+  console.log('   Username: buyer | No wallet');
+  console.log('   Username: buyer2 | No wallet');
+  console.log('   Password: 123123');
 
 }
 
