@@ -58,7 +58,18 @@ export const connectWallet = async () => {
   }
   
   try {
-    // Request account access - this will trigger MetaMask popup
+    // Force MetaMask to show account selection by requesting permissions first
+    try {
+      await window.ethereum.request({
+        method: 'wallet_requestPermissions',
+        params: [{ eth_accounts: {} }]
+      });
+    } catch (permError: unknown) {
+      // If wallet_requestPermissions is not supported, fall back to eth_requestAccounts
+      console.log('wallet_requestPermissions not supported, using eth_requestAccounts', permError);
+    }
+    
+    // Request account access - this will trigger MetaMask popup for account selection
     await window.ethereum.request({ method: 'eth_requestAccounts' });
     
     const provider = new ethers.BrowserProvider(window.ethereum);

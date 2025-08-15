@@ -38,7 +38,8 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   connectWallet: () => Promise<string | null>;
-  disconnectWallet: () => void;
+  updateWallet: () => Promise<{ success: boolean; error?: string }>;
+  disconnectWallet: () => Promise<void>;
   clearError: () => void;
   verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -128,6 +129,68 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setWalletAddress(address);
       localStorage.setItem('walletAddress', address);
       await fetchBalance(address);
+      
+      // Save wallet to database if user is logged in
+      console.log('🔍 Checking wallet save conditions:', {
+        hasUser: !!user,
+        userId: user?.id,
+        hasToken: !!token,
+        walletAddress: address
+      });
+      
+      if (user?.id && token) {
+        console.log('✅ User is logged in, attempting to save wallet to database');
+        try {
+          const requestBody = {
+            user_id: user.id,
+            wallet_addr: address
+          };
+          
+          console.log('📤 Making POST request to save wallet:', {
+            url: `${API_BASE_URL}/wallets`,
+            body: requestBody,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token.substring(0, 20)}...`
+            }
+          });
+          
+          const response = await fetch(`${API_BASE_URL}/wallets`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(requestBody)
+          });
+          
+          console.log('📥 Response received:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok
+          });
+          
+          const data = await response.json();
+          console.log('📋 Response data:', data);
+          
+          if (!data.success) {
+            console.warn('❌ Failed to save wallet to database:', data.error);
+            // Don't throw error here as wallet connection was successful
+          } else {
+            console.log('✅ Wallet saved to database successfully:', data);
+          }
+        } catch (dbError: any) {
+          console.error('💥 Error saving wallet to database:', {
+            message: dbError.message,
+            stack: dbError.stack,
+            error: dbError
+          });
+          // Don't throw error here as wallet connection was successful
+        }
+      } else {
+        console.log('⚠️ Cannot save wallet - user not logged in or missing token');
+      }
+      
       return address;
     } catch (err: any) {
       setError(err.message || 'Failed to connect wallet.');
@@ -136,13 +199,123 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsWalletLoading(false);
     }
-  }, [fetchBalance]);
+  }, [fetchBalance, user, token]);
 
-  const disconnectWallet = () => {
-    setWalletAddress(null);
-    setWalletBalance(null);
-    localStorage.removeItem('walletAddress');
-    console.log('Wallet disconnected.');
+  const updateWallet = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    if (!user?.id || !token) {
+      return { success: false, error: 'User not logged in' };
+    }
+
+    setIsWalletLoading(true);
+    setError(null);
+
+    try {
+      // Get current MetaMask address
+      const { address } = await web3ConnectWallet();
+      
+      console.log('🔄 Updating wallet address:', {
+        userId: user.id,
+        newAddress: address,
+        currentAddress: walletAddress
+      });
+
+      // Update wallet in database
+      const requestBody = {
+        user_id: user.id,
+        wallet_addr: address
+      };
+
+      const response = await fetch(`${API_BASE_URL}/wallets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        console.error('❌ Failed to update wallet in database:', data.error);
+        return { success: false, error: data.error || 'Failed to update wallet in database' };
+      }
+
+      // Update local state
+      setWalletAddress(address);
+      localStorage.setItem('walletAddress', address);
+      await fetchBalance(address);
+
+      console.log('✅ Wallet updated successfully:', address);
+      return { success: true };
+
+    } catch (err: any) {
+      console.error('💥 Error updating wallet:', err);
+      const errorMessage = err.message || 'Failed to update wallet';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsWalletLoading(false);
+    }
+  }, [user, token, walletAddress, fetchBalance]);
+
+  const disconnectWallet = async () => {
+    setIsWalletLoading(true);
+    setError(null);
+
+    try {
+      // If user is logged in, try to remove wallet from database
+      if (user?.id && token) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/wallets/user/${user.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          const data = await response.json();
+          
+          if (!data.success) {
+            console.warn('Failed to disconnect wallet from database:', data.error);
+            // Continue with local disconnection even if database operation fails
+          } else {
+            console.log('Wallet disconnected from database successfully.');
+          }
+        } catch (dbError: any) {
+          console.warn('Error disconnecting wallet from database:', dbError.message);
+          // Continue with local disconnection even if database operation fails
+        }
+      }
+
+      // Always clear local state and storage
+      setWalletAddress(null);
+      setWalletBalance(null);
+      localStorage.removeItem('walletAddress');
+      
+      console.log('Wallet disconnected locally.');
+
+      // Trigger MetaMask reconnection popup
+      const ethereum = (window as any).ethereum;
+      if (ethereum) {
+        try {
+          await ethereum.request({ method: 'eth_requestAccounts' });
+          console.log('MetaMask reconnection prompted.');
+        } catch (metamaskError: any) {
+          console.error('MetaMask reconnection failed:', metamaskError);
+          // Don't throw error here as wallet was successfully disconnected locally
+        }
+      } else {
+        console.warn('MetaMask not detected for reconnection.');
+      }
+
+    } catch (err: any) {
+      console.error('Error disconnecting wallet:', err);
+      setError(err.message || 'Failed to disconnect wallet');
+    } finally {
+      setIsWalletLoading(false);
+    }
   };
 
   const login = async (credentials: AuthCredentials): Promise<boolean> => {
@@ -287,6 +460,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     register,
     logout,
     connectWallet,
+    updateWallet,
     disconnectWallet,
     clearError,
     verifyEmail,

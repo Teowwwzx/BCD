@@ -104,6 +104,7 @@ const statsRoutes = require('./routes/stats');
 const addressesRoutes = require('./routes/addresses');
 const paymentsRoutes = require('./routes/payments');
 const shippingMethodsRoutes = require('./routes/shipping-methods');
+const walletRoutes = require('./routes/wallet');
 
 console.log('Loading users routes...');
 app.use('/api/auth', authRoutes);
@@ -161,6 +162,10 @@ console.log('✓ Payments routes loaded');
 console.log('Loading shipping methods routes...');
 app.use('/api/shipping-methods', shippingMethodsRoutes);
 console.log('✓ Shipping methods routes loaded');
+
+console.log('Loading wallet routes...');
+app.use('/api/wallets', walletRoutes);
+console.log('✓ Wallet routes loaded');
 
 
 // Root endpoint
