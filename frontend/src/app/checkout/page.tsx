@@ -359,7 +359,7 @@ export default function CheckoutPage() {
       } else {
         setTransactionStatus('error');
         setShowSuccessModal(true);
-        router.push('/order');
+        router.push('/orders');
 
         // alert('Payment failed: ' + (result.error || 'Unknown error'));
       }
@@ -679,7 +679,7 @@ export default function CheckoutPage() {
               onClick={handleSuccessModalClose}
               className="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              Go to Profile
+              Go to Order
             </button>
           </div>
         </div>
