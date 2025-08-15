@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { useAuth } from './AuthContext'; // Use the centralized auth context
+import { useAuth } from '../hooks/useAuth'; // Use the centralized auth context
+
 
 // Define the shape of a single notification
 export interface Notification {

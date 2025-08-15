@@ -45,6 +45,8 @@ export const usePayments = () => {
 
   // Helper function to make API calls
   const makeApiCall = useCallback(async (url: string, options: RequestInit = {}) => {
+    console.log('DEBUG: Making API call to:', url, 'with options:', options);
+    
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${url}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -54,12 +56,17 @@ export const usePayments = () => {
       ...options,
     });
 
+    console.log('DEBUG: API response status:', response.status, 'for URL:', url);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+      console.error('DEBUG: API error response:', errorData);
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log('DEBUG: API success response:', result);
+    return result;
   }, [token]);
 
   // Fetch payments for a specific order or all payments
@@ -124,7 +131,7 @@ export const usePayments = () => {
       const paymentResponse = await makeApiCall('/payments/gateway', {
         method: 'POST',
         body: JSON.stringify({
-          orderId: checkoutResponse.order.id,
+          orderId: checkoutResponse.data.order.id,
           amount: paymentData.amount,
           paymentMethod: 'gateway',
           paymentToken: 'stripe_token_simulation',
@@ -141,7 +148,7 @@ export const usePayments = () => {
       return {
         success: true,
         paymentId: paymentResponse.payment.id.toString(),
-        orderId: checkoutResponse.order.id.toString(),
+        orderId: checkoutResponse.data.order.id.toString(),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Gateway payment failed';
@@ -171,15 +178,18 @@ export const usePayments = () => {
         }
       }
       
-      // Ensure we have access to accounts
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
-
       // Check if we have ethereum provider
       if (typeof window === 'undefined' || !window.ethereum) {
         throw new Error('MetaMask or compatible wallet not found');
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // Type assertion for window.ethereum
+      const ethereum = window.ethereum as any;
+
+      // Ensure we have access to accounts
+      await ethereum.request({ method: 'eth_requestAccounts' });
+
+      const provider = new ethers.BrowserProvider(ethereum);
       const signer = await provider.getSigner();
       const userAddress = await signer.getAddress();
 
@@ -203,7 +213,7 @@ export const usePayments = () => {
         value: amountInWei,
       });
 
-      // Get current gas price
+      // Get current gas price (use legacy gas pricing for local network)
       const feeData = await provider.getFeeData();
       const gasPrice = feeData.gasPrice || parseEther('0.00000002'); // Fallback gas price
       
@@ -214,12 +224,50 @@ export const usePayments = () => {
         throw new Error(`Insufficient balance for transaction and gas fees. Required: ${formatEther(totalCost)} ETH, Available: ${formatEther(balance)} ETH`);
       }
 
-      // Create and send the transaction
+      // FIRST, validate and create the order via checkout endpoint (before sending money!)
+      console.log('DEBUG: About to create order with data:', {
+        buyerId: user?.id,
+        shippingAddressId: paymentData.checkoutData.shippingAddressId,
+        billingAddressId: paymentData.checkoutData.billingAddressId,
+        shippingMethodId: paymentData.checkoutData.shippingMethodId,
+        paymentMethod: 'wallet',
+        fromUserId: user?.id,
+        toUserId: paymentData.checkoutData.sellerId || 1,
+        couponCode: paymentData.checkoutData.couponCode,
+      });
+      
+      const checkoutResponse = await makeApiCall('/orders/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          buyerId: user?.id,
+          shippingAddressId: paymentData.checkoutData.shippingAddressId,
+          billingAddressId: paymentData.checkoutData.billingAddressId,
+          shippingMethodId: paymentData.checkoutData.shippingMethodId,
+          paymentMethod: 'wallet',
+          fromUserId: user?.id,
+          toUserId: paymentData.checkoutData.sellerId || 1, // Default to seller ID 1 if not provided
+          couponCode: paymentData.checkoutData.couponCode,
+        }),
+      });
+      
+      console.log('DEBUG: Checkout response:', checkoutResponse);
+
+      // Validate checkout response
+      console.log('DEBUG: Validating checkout response...');
+      if (!checkoutResponse || !checkoutResponse.data || !checkoutResponse.data.order || !checkoutResponse.data.order.id) {
+        console.error('DEBUG: Invalid checkout response:', checkoutResponse);
+        throw new Error('Failed to create order. Please try again.');
+      }
+      console.log('DEBUG: Order created successfully with ID:', checkoutResponse.data.order.id);
+
+      // Now that order is created, proceed with blockchain transaction
+      // Create and send the transaction (use legacy gas pricing for local network)
       const transaction = {
         to: resolvedRecipientAddress,
         value: amountInWei,
         gasLimit: gasEstimate,
         gasPrice: gasPrice,
+        type: 0, // Use legacy transaction type to avoid EIP-1559 issues on local network
       };
 
       const txResponse = await signer.sendTransaction(transaction);
@@ -235,27 +283,14 @@ export const usePayments = () => {
       const actualGasUsed = receipt.gasUsed;
       const actualGasCost = actualGasUsed * (receipt.gasPrice || gasPrice);
 
-      // First, create the order via checkout endpoint
-      const checkoutResponse = await makeApiCall('/orders/checkout', {
-        method: 'POST',
-        body: JSON.stringify({
-          buyerId: user?.id,
-          shippingAddressId: paymentData.checkoutData.shippingAddressId,
-          billingAddressId: paymentData.checkoutData.billingAddressId,
-          shippingMethodId: paymentData.checkoutData.shippingMethodId,
-          paymentMethod: 'wallet',
-          fromUserId: user?.id,
-          toUserId: paymentData.checkoutData.sellerId || 1, // Default to seller ID 1 if not provided
-          couponCode: paymentData.checkoutData.couponCode,
-        }),
-      });
-
       // Then create payment record via API
       const apiData = await makeApiCall('/payments/wallet-transfer', {
         method: 'POST',
         body: JSON.stringify({
-          orderId: checkoutResponse.order.id,
+          orderId: checkoutResponse.data.order.id,
           amount: paymentData.amount,
+          fromUserId: user?.id,
+          toUserId: paymentData.checkoutData.sellerId || 1,
           txHash: receipt.hash,
           blockNumber: receipt.blockNumber,
           fromAddress: userAddress,
@@ -274,12 +309,20 @@ export const usePayments = () => {
       return {
         success: true,
         paymentId: apiData.payment.id.toString(),
-        orderId: checkoutResponse.order.id.toString(),
+        orderId: checkoutResponse.data.order.id.toString(),
         transactionHash: receipt.hash,
         gasUsed: formatEther(actualGasUsed),
         gasPrice: formatEther(receipt.gasPrice || gasPrice),
       };
     } catch (error) {
+      console.error('DEBUG: processWalletPayment error caught:', error);
+      console.error('DEBUG: Error type:', typeof error);
+      console.error('DEBUG: Error instanceof Error:', error instanceof Error);
+      if (error instanceof Error) {
+        console.error('DEBUG: Error message:', error.message);
+        console.error('DEBUG: Error stack:', error.stack);
+      }
+      
       console.error('Wallet payment error:', error);
       let errorMessage = 'Wallet payment failed';
       
@@ -352,7 +395,9 @@ export const usePayments = () => {
         return false;
       }
       
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // Type assertion for window.ethereum
+      const ethereum = window.ethereum as any;
+      const provider = new ethers.BrowserProvider(ethereum);
       const accounts = await provider.listAccounts();
       return accounts.length > 0;
     } catch (error) {
@@ -368,7 +413,9 @@ export const usePayments = () => {
         return null;
       }
       
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // Type assertion for window.ethereum
+      const ethereum = window.ethereum as any;
+      const provider = new ethers.BrowserProvider(ethereum);
       const balance = await provider.getBalance(walletAddress);
       return formatEther(balance);
     } catch (error) {

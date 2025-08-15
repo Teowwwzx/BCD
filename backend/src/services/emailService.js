@@ -6,7 +6,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 class EmailService {
   constructor() {
     this.fromEmail = process.env.FROM_EMAIL || 'noreply@beconx.site';
-    this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   }
 
   // Generate a secure random token

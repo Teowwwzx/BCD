@@ -464,8 +464,8 @@ router.post('/checkout', async (req, res) => {
              blockNumber: walletTransfer.blockNumber,
              gasUsed: walletTransfer.gasUsed,
              gas_price_gwei: walletTransfer.gasPriceGwei,
-             from_address: fromWallet.walletAddress,
-             to_address: toWallet.walletAddress,
+             from_address: fromWallet.wallet_addr,
+             to_address: toWallet.wallet_addr,
              status: walletTransfer.success ? 'confirmed' : 'failed',
              payment_method: 'wallet',
              processing_fee: '0.00'

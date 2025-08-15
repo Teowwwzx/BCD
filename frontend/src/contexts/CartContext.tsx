@@ -104,6 +104,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateCartItem = async (productId: number, newQuantity: number) => {
+    if (!user) return;
+    
     setError(null);
     const itemToUpdate = cartItems.find(item => item.productId === productId);
 
@@ -115,11 +117,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    setLoading(true);
-    // ... (rest of the API call logic is the same)
-    await fetch(`${API_BASE_URL}/cart/update`, { /* ... */ });
-    await fetchCart();
-    setLoading(false);
+    const result = await handleApiCall('/update', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, productId, quantity: newQuantity }),
+    });
+
+    if (result) await fetchCart();
   };
 
   const removeFromCart = async (productId: number) => {

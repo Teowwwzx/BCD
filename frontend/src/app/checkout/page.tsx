@@ -161,9 +161,9 @@ export default function CheckoutPage() {
   const [orderConfirmation, setOrderConfirmation] = useState<any>(null);
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [transactionStatus, setTransactionStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const router = useRouter();
 
   // 2. Context Hooks
-  const router = useRouter();
   const { user, isLoggedIn, authIsLoading, isWalletConnected, connectWallet, walletAddress, walletBalance } = useAuth();
   const { cartItems, clearCart } = useCart();
   const { addresses, createAddress, loading: addressesLoading, error: addressesError } = useAddresses();
@@ -195,11 +195,6 @@ export default function CheckoutPage() {
       router.push('/products');
     }
   }, [authIsLoading, cartItems.length, router]);
-
-  if (authIsLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  if (!isLoggedIn || (cartItems.length === 0 && !authIsLoading)) {
-    return <div className="min-h-screen flex items-center justify-center">Redirecting...</div>;
-  }
 
   // 4. Performance Hooks
   const selectedAddress = useMemo(() => {
@@ -308,6 +303,17 @@ export default function CheckoutPage() {
       }
     }
 
+    // Validate required fields before processing
+    if (!selectedAddressId) {
+      alert('Please select a shipping address before proceeding.');
+      return;
+    }
+    
+    if (!selectedShippingMethodId) {
+      alert('Please select a shipping method before proceeding.');
+      return;
+    }
+
     setIsProcessingOrder(true);
     setTransactionStatus('processing');
     setPaymentResult(null);
@@ -383,6 +389,12 @@ export default function CheckoutPage() {
         return false;
     }
   }, [currentStep, selectedAddressId, selectedShippingMethodId, selectedPaymentMethod]);
+
+  // Early returns after all hooks are defined
+  if (authIsLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (!isLoggedIn || (cartItems.length === 0 && !authIsLoading)) {
+    return <div className="min-h-screen flex items-center justify-center">Redirecting...</div>;
+  }
 
   const getStepContent = () => {
     switch (currentStep) {

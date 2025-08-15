@@ -287,6 +287,12 @@ router.post('/wallet-transfer', async (req, res) => {
             amount,
             fromUserId,
             toUserId,
+            txHash,
+            blockNumber,
+            gasUsed,
+            gasPriceGwei,
+            fromAddress,
+            toAddress,
             description = 'Wallet transfer payment'
         } = req.body;
 
@@ -361,28 +367,30 @@ router.post('/wallet-transfer', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Recipient wallet not found.' });
         }
 
-        // Simulate wallet balance check (in a real implementation, you'd check actual wallet balance)
-        // For now, we'll assume the transfer is successful
-        const transferId = `wallet_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Use real transaction data from MetaMask if provided, otherwise simulate
+        const actualTxHash = txHash || `wallet_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         // Create payment transaction record
         const payment = await prisma.paymentTransaction.create({
             data: {
                 orderId: orderIdInt,
                 amount: amountDecimal.toString(),
-                tx_hash: transferId,
-                blockNumber: null, // Not applicable for wallet transfers
-                from_address: fromWallet.wallet_addr,
-                to_address: toWallet.wallet_addr,
-                status: 'confirmed', // Assuming instant transfer
-                payment_method: 'wallet_transfer',
+                tx_hash: actualTxHash,
+                blockNumber: blockNumber || null,
+                gasUsed: gasUsed || null,
+                gas_price_gwei: gasPriceGwei || null,
+                from_address: fromAddress || fromWallet.wallet_addr,
+                to_address: toAddress || toWallet.wallet_addr,
+                status: 'confirmed',
+                payment_method: 'wallet',
                 gateway_response: JSON.stringify({
-                    transferId,
+                    transferId: actualTxHash,
                     fromUserId: fromUserIdInt,
                     toUserId: toUserIdInt,
-                    description
+                    description,
+                    realTransaction: !!txHash
                 }),
-                processing_fee: '0.00', // No fee for wallet transfers
+                processing_fee: '0.00',
                 createdAt: new Date(),
                 updatedAt: new Date()
             },
@@ -409,10 +417,14 @@ router.post('/wallet-transfer', async (req, res) => {
             data: {
                 payment,
                 transfer: {
-                    transferId,
-                    fromWallet: fromWallet.wallet_addr,
-                    toWallet: toWallet.wallet_addr,
-                    description
+                    transferId: actualTxHash,
+                    fromWallet: fromAddress || fromWallet.wallet_addr,
+                    toWallet: toAddress || toWallet.wallet_addr,
+                    description,
+                    transactionHash: txHash,
+                    blockNumber,
+                    gasUsed,
+                    gasPriceGwei
                 }
             }
         });
