@@ -201,10 +201,15 @@ export const usePayments = () => {
 
       // Check wallet balance
       const balance = await provider.getBalance(userAddress);
-      const amountInWei = parseEther(paymentData.amount.toString());
+      
+      // Convert USD amount to ETH (using a simple conversion for demo purposes)
+      // In production, you would fetch real-time exchange rates
+      const usdToEthRate = 0.0004; // Approximate: 1 USD = 0.0004 ETH (when ETH = $2500)
+      const ethAmount = parseFloat(paymentData.amount) * usdToEthRate;
+      const amountInWei = parseEther(ethAmount.toString());
       
       if (balance < amountInWei) {
-        throw new Error(`Insufficient balance. Required: ${paymentData.amount} ETH, Available: ${formatEther(balance)} ETH`);
+        throw new Error(`Insufficient balance. Required: ${ethAmount.toFixed(6)} ETH (~$${paymentData.amount}), Available: ${formatEther(balance)} ETH`);
       }
 
       // Estimate gas for the transaction
@@ -221,7 +226,7 @@ export const usePayments = () => {
       const totalCost = amountInWei + estimatedGasCost;
 
       if (balance < totalCost) {
-        throw new Error(`Insufficient balance for transaction and gas fees. Required: ${formatEther(totalCost)} ETH, Available: ${formatEther(balance)} ETH`);
+        throw new Error(`Insufficient balance for transaction and gas fees. Required: ${formatEther(totalCost)} ETH (~$${paymentData.amount} + gas), Available: ${formatEther(balance)} ETH`);
       }
 
       // FIRST, validate and create the order via checkout endpoint (before sending money!)
@@ -288,7 +293,8 @@ export const usePayments = () => {
         method: 'POST',
         body: JSON.stringify({
           orderId: checkoutResponse.data.order.id,
-          amount: paymentData.amount,
+          amount: ethAmount.toFixed(6), // Store ETH amount, not USD
+          usdAmount: paymentData.amount, // Store original USD amount for reference
           fromUserId: user?.id,
           toUserId: paymentData.checkoutData.sellerId || 1,
           txHash: receipt.hash,
@@ -311,6 +317,8 @@ export const usePayments = () => {
         paymentId: apiData.payment.id.toString(),
         orderId: checkoutResponse.data.order.id.toString(),
         transactionHash: receipt.hash,
+        ethAmount: ethAmount.toFixed(6),
+        usdAmount: paymentData.amount,
         gasUsed: formatEther(actualGasUsed),
         gasPrice: formatEther(receipt.gasPrice || gasPrice),
       };
@@ -323,7 +331,7 @@ export const usePayments = () => {
         console.error('DEBUG: Error stack:', error.stack);
       }
       
-      console.error('Wallet payment error:', error);
+      // console.error('Wallet payment error:', error);
       let errorMessage = 'Wallet payment failed';
       
       if (error instanceof Error) {

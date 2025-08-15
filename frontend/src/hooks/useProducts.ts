@@ -13,8 +13,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/a
 // =================================================================
 
 interface ProductReview {
-    id: string;
-    productId: string;
+    id: number;
     rating: number;
 }
 
@@ -36,31 +35,19 @@ export interface DisplayProduct {
 }
 
 // =================================================================
-// HELPER FUNCTION TO FETCH AND CALCULATE RATING
+// HELPER FUNCTION TO CALCULATE RATING FROM REVIEWS
 // =================================================================
 
-// The productId type has been changed to string to match the `p.id` property.
-const fetchProductRating = async (productId: string): Promise<number> => {
-    try {
-        // Use the API_BASE_URL constant and a more descriptive endpoint
-        const res = await fetch(`${API_BASE_URL}/products/${productId}/reviews`);
-        const json = await res.json();
-
-        // Check if the request was successful and if there is review data
-        if (!res.ok || !json.data || json.data.reviews.length === 0) {
-            console.warn(`No reviews found for product ID ${productId}.`);
-            return 0;
-        }
-
-        const reviews = json.data.reviews;
-        const totalRating = reviews.reduce((sum: number, r: ProductReview) => sum + r.rating, 0);
-        const averageRating = totalRating / reviews.length;
-
-        return Math.round(averageRating * 10) / 10; // e.g., 4.3
-    } catch (err) {
-        console.error('Error fetching rating:', err);
+// Calculate average rating from product reviews array
+const calculateAverageRating = (reviews: ProductReview[]): number => {
+    if (!reviews || reviews.length === 0) {
         return 0;
     }
+    
+    const totalRating = reviews.reduce((sum: number, r: ProductReview) => sum + r.rating, 0);
+    const averageRating = totalRating / reviews.length;
+    
+    return Math.round(averageRating * 10) / 10; // e.g., 4.3
 };
 
 // =================================================================
@@ -87,27 +74,25 @@ export const useProducts = () => {
             if (!dbResponse.ok) throw new Error('Failed to fetch database products.');
             const dbResult = await dbResponse.json();
 
-            // To improve performance, we fetch all ratings concurrently
-            const databaseProducts: DisplayProduct[] = await Promise.all(
-                (dbResult.data || []).map(async (p: DbProduct): Promise<DisplayProduct> => {
-                    // Fetch the rating for the current product
-                    const rating = await fetchProductRating(p.id);
+            // Process database products with ratings from included reviews
+            const databaseProducts: DisplayProduct[] = (dbResult.data || []).map((p: DbProduct): DisplayProduct => {
+                // Calculate rating from included reviews
+                const rating = calculateAverageRating(p.product_reviews || []);
 
-                    return {
-                        id: `db-${p.id}`,
-                        name: p.name,
-                        description: p.description || '',
-                        price: Number(p.price),
-                        quantity: p.stock_quantity,
-                        seller: p.seller.username,
-                        rating: rating, // Use the calculated rating
-                        category: p.category?.name || 'Uncategorized',
-                        image: p.images?.[0]?.imageUrl || '/placeholder.png',
-                        inStock: p.stock_quantity > 0,
-                        isBlockchain: false,
-                    };
-                })
-            );
+                return {
+                    id: `db-${p.id}`,
+                    name: p.name,
+                    description: p.description || '',
+                    price: Number(p.price),
+                    quantity: p.stock_quantity,
+                    seller: p.seller.username,
+                    rating: rating, // Use the calculated rating
+                    category: p.category?.name || 'Uncategorized',
+                    image: p.images?.[0]?.imageUrl || '/placeholder.png',
+                    inStock: p.stock_quantity > 0,
+                    isBlockchain: false,
+                };
+            });
 
             // --- 2. Fetch from Blockchain (On-Chain) ---
             let blockchainProducts: DisplayProduct[] = [];

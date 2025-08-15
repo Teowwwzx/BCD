@@ -161,6 +161,7 @@ export default function CheckoutPage() {
   const [orderConfirmation, setOrderConfirmation] = useState<any>(null);
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [transactionStatus, setTransactionStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const router = useRouter();
 
   // 2. Context Hooks
@@ -168,7 +169,6 @@ export default function CheckoutPage() {
   const { cartItems, clearCart } = useCart();
   const { addresses, createAddress, loading: addressesLoading, error: addressesError } = useAddresses();
   const {
-    processGatewayPayment,
     processWalletPayment,
     paymentsIsLoading,
     paymentsError,
@@ -338,24 +338,13 @@ export default function CheckoutPage() {
         })),
       };
 
-      let result;
-      
-      if (selectedPaymentMethod === PaymentMethod.Gateway) {
-        // Process gateway payment
-        result = await processGatewayPayment({
-          amount: calculateTotal().toString(),
-          currency: 'USD',
-          checkoutData,
-        });
-      } else {
-        // Process wallet payment
-        const marketplaceWallet = process.env.NEXT_PUBLIC_MARKETPLACE_WALLET || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-        result = await processWalletPayment({
-          amount: calculateTotal().toString(),
-          recipientAddress: marketplaceWallet,
-          checkoutData,
-        });
-      }
+      // Process wallet payment (only payment method available)
+      const marketplaceWallet = process.env.NEXT_PUBLIC_MARKETPLACE_WALLET || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+      const result = await processWalletPayment({
+        amount: calculateTotal().toString(),
+        recipientAddress: marketplaceWallet,
+        checkoutData,
+      });
 
       setPaymentResult(result);
       
@@ -364,9 +353,15 @@ export default function CheckoutPage() {
         setOrderConfirmation(result);
         setCurrentStep(CheckoutStep.CONFIRMATION);
         clearCart();
+        setShowSuccessModal(true);
+        router.push('/order');
+
       } else {
         setTransactionStatus('error');
-        alert('Payment failed: ' + (result.error || 'Unknown error'));
+        setShowSuccessModal(true);
+        router.push('/order');
+
+        // alert('Payment failed: ' + (result.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Order placement failed:', error);
@@ -375,7 +370,7 @@ export default function CheckoutPage() {
     } finally {
       setIsProcessingOrder(false);
     }
-  }, [selectedAddressId, selectedPaymentMethod, selectedShippingMethodId, couponCode, cartItems, processGatewayPayment, processWalletPayment, clearCart, isWalletConnected, walletBalance, calculateTotal]);
+  }, [selectedAddressId, selectedPaymentMethod, selectedShippingMethodId, couponCode, cartItems, processWalletPayment, clearCart, isWalletConnected, walletBalance, calculateTotal]);
 
   const canProceedToNext = useMemo(() => {
     switch (currentStep) {
@@ -389,6 +384,11 @@ export default function CheckoutPage() {
         return false;
     }
   }, [currentStep, selectedAddressId, selectedShippingMethodId, selectedPaymentMethod]);
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    router.push('/profile');
+  };
 
   // Early returns after all hooks are defined
   if (authIsLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -506,7 +506,7 @@ export default function CheckoutPage() {
               <div className="mb-6">
                 <h3 className="font-medium mb-2">Payment Method</h3>
                 <div className="bg-gray-50 p-4 rounded-md">
-                  <p>{selectedPaymentMethod === PaymentMethod.Gateway ? 'Credit/Debit Card' : 'Crypto Wallet'}</p>
+                  <p>Crypto Wallet</p>
                 </div>
               </div>
             </div>
@@ -647,6 +647,43 @@ export default function CheckoutPage() {
         </div>
       </main>
       <Footer />
+      
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+            <div className="mb-6">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
+              <p className="text-gray-600 mb-4">
+                Your order has been placed successfully. You can view your order details in your profile.
+              </p>
+              {orderConfirmation && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-gray-700">
+                    <strong>Order ID:</strong> {orderConfirmation.orderId}
+                  </p>
+                  {orderConfirmation.transactionHash && (
+                    <p className="text-sm text-gray-700 mt-1">
+                      <strong>Transaction:</strong> {orderConfirmation.transactionHash.slice(0, 10)}...
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleSuccessModalClose}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Go to Profile
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 

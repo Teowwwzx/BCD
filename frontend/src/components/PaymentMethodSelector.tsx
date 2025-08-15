@@ -48,14 +48,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
 
   // 4. Performance Hooks
   const paymentOptions = useMemo<PaymentOption[]>(() => [
-    {
-      method: PaymentMethod.Gateway,
-      title: 'Credit/Debit Card',
-      description: 'Pay securely with your credit or debit card via Stripe/PayPal',
-      icon: '💳',
-      fees: '2.9% + $0.30',
-      processingTime: 'Instant',
-    },
+    // Gateway payment option disabled - only wallet payments available
     {
       method: PaymentMethod.Wallet,
       title: 'Crypto Wallet',
@@ -185,22 +178,15 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
               {isSelected && (
                 <div className="mt-4 rounded-md bg-blue-100 p-3">
                   <div className="text-sm text-blue-800">
-                    {option.method === PaymentMethod.Gateway ? (
-                      <div>
-                        <p className="font-medium mb-1">Secure Payment Processing</p>
-                        <p>Your payment will be processed securely through our payment gateway. We accept all major credit and debit cards.</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="font-medium mb-1">Web3 Wallet Required</p>
-                        <p>Make sure you have a Web3 wallet (like MetaMask) connected and sufficient funds for the transaction and gas fees.</p>
-                        {isWalletConnected && authWalletBalance && parseFloat(authWalletBalance) < 0.01 && (
-                          <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded">
-                            <p className="text-xs text-yellow-800">⚠️ Low wallet balance. Make sure you have enough ETH for the transaction and gas fees.</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <div>
+                      <p className="font-medium mb-1">Web3 Wallet Required</p>
+                      <p>Make sure you have a Web3 wallet (like MetaMask) connected and sufficient funds for the transaction and gas fees.</p>
+                      {isWalletConnected && authWalletBalance && parseFloat(authWalletBalance) < 0.01 && (
+                        <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded">
+                          <p className="text-xs text-yellow-800">⚠️ Low wallet balance. Make sure you have enough ETH for the transaction and gas fees.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -212,30 +198,19 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       {/* Payment method benefits */}
       <div className="mt-6 rounded-lg bg-gray-50 p-4">
         <h4 className="text-sm font-medium text-gray-900 mb-2">
-          Why choose {selectedMethod === PaymentMethod.Gateway ? 'Card Payment' : selectedMethod === PaymentMethod.Wallet ? 'Crypto Payment' : 'our payment methods'}?
+          Why choose Crypto Payment?
         </h4>
         
-        {selectedMethod === PaymentMethod.Gateway && (
-          <ul className="text-sm text-gray-600 space-y-1">
-            <li>• Instant payment confirmation</li>
-            <li>• Buyer protection and dispute resolution</li>
-            <li>• No need for cryptocurrency knowledge</li>
-            <li>• Widely accepted and familiar</li>
-          </ul>
-        )}
-        
-        {selectedMethod === PaymentMethod.Wallet && (
+        {selectedMethod === PaymentMethod.Wallet ? (
           <ul className="text-sm text-gray-600 space-y-1">
             <li>• Lower transaction fees (gas only)</li>
             <li>• Decentralized and trustless payments</li>
             <li>• Direct wallet-to-wallet transfers</li>
             <li>• Enhanced privacy and security</li>
           </ul>
-        )}
-        
-        {!selectedMethod && (
+        ) : (
           <p className="text-sm text-gray-600">
-            Select a payment method above to see its benefits and features.
+            Connect your wallet to see the benefits of crypto payments.
           </p>
         )}
       </div>

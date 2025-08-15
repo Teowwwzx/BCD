@@ -155,7 +155,7 @@ router.post('/', async (req, res) => {
 
         res.status(201).json({ success: true, data: payment });
     } catch (error) {
-        console.error('Error creating payment:', error);
+        // console.error('Error creating payment:', error);
         res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });
@@ -284,7 +284,8 @@ router.post('/wallet-transfer', async (req, res) => {
     try {
         const {
             orderId,
-            amount,
+            amount, // ETH amount
+            usdAmount, // USD amount for reference
             fromUserId,
             toUserId,
             txHash,
@@ -387,6 +388,8 @@ router.post('/wallet-transfer', async (req, res) => {
                     transferId: actualTxHash,
                     fromUserId: fromUserIdInt,
                     toUserId: toUserIdInt,
+                    ethAmount: amountDecimal.toString(),
+                    usdAmount: usdAmount || null,
                     description,
                     realTransaction: !!txHash
                 }),

@@ -48,7 +48,7 @@ export default function ProductCard({
           />
           <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
             <span className="px-2 py-1 bg-cyan-500 text-black text-xs font-bold">{product.category}</span>
-            {!product.inStock && <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold">OUT_OF_STOCK</span>}
+            {/* {!product.inStock && <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold">OUT_OF_STOCK</span>} */}
             {product.isBlockchain && <span className="px-2 py-1 bg-purple-500 text-white text-xs font-bold">ON-CHAIN</span>}
           </div>
         </div>

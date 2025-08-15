@@ -1,7 +1,7 @@
 // src/app/page.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 // --- Core Principles In Action ---
@@ -27,7 +27,14 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
 
-  // --- C. Guard Clause for Page Protection/Redirects ---
+  // --- C. Effect Hooks for Navigation ---
+  useEffect(() => {
+    if (!authIsLoading && isLoggedIn && user?.user_role === 'admin') {
+      router.push('/admin');
+    }
+  }, [authIsLoading, isLoggedIn, user?.user_role, router]);
+
+  // --- D. Guard Clause for Page Protection/Redirects ---
   if (authIsLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -37,7 +44,6 @@ export default function Home() {
   }
 
   if (isLoggedIn && user?.user_role === 'admin') {
-    router.push('/admin');
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="font-mono text-lg text-white animate-pulse">REDIRECTING TO ADMIN CONSOLE...</div>
@@ -45,7 +51,7 @@ export default function Home() {
     );
   }
 
-  // --- D. Derived State & Helper Functions ---
+  // --- E. Derived State & Helper Functions ---
   const filteredProducts = useMemo(() => {
     const sourceProducts = allProducts.filter(p => p.isBlockchain === showBlockchainProducts);
 
