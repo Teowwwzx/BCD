@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../contexts/CartContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { ConfirmationModal } from '../../components/Modal';
 
 export default function CartPage() {
   const { isLoggedIn, isWalletConnected, walletAddress, connectWallet, user } = useAuth();
@@ -15,6 +16,11 @@ export default function CartPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  
+  // Modal states
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showClearCartModal, setShowClearCartModal] = useState(false);
+  const [itemToRemove, setItemToRemove] = useState<number | null>(null);
 
   // Handle authentication state loading and redirect
   useEffect(() => {
@@ -43,32 +49,58 @@ export default function CartPage() {
   }
 
   const updateQuantity = async (productId: number, newQuantity: number) => {
-    if (newQuantity < 0) return; // Prevent negative quantities
+    if (newQuantity <= 0) {
+      handleRemoveItem(productId);
+      return;
+    }
 
     setActionLoading(productId);
+    
     try {
-      if (newQuantity === 0) {
-        await removeFromCart(productId);
-      } else {
-        await updateCartItem(productId, newQuantity);
-      }
+      await updateCartItem(productId, newQuantity);
     } catch (error) {
       console.error('Error updating quantity:', error);
-      // Error will be displayed via the error state from CartContext
+      // Error will be handled by CartContext
     } finally {
       setActionLoading(null);
     }
   };
 
-  const removeItem = async (productId: number) => {
-    setActionLoading(productId);
+
+
+  const handleRemoveItem = (productId: number) => {
+    setItemToRemove(productId);
+    setShowRemoveModal(true);
+  };
+
+  const confirmRemoveItem = async () => {
+    if (itemToRemove === null) return;
+    
+    setActionLoading(itemToRemove);
     try {
-      await removeFromCart(productId);
+      await removeFromCart(itemToRemove);
     } catch (error) {
       console.error('Error removing item:', error);
       // Error will be displayed via the error state from CartContext
     } finally {
       setActionLoading(null);
+      setShowRemoveModal(false);
+      setItemToRemove(null);
+    }
+  };
+
+  const handleClearCart = () => {
+    setShowClearCartModal(true);
+  };
+
+  const confirmClearCart = async () => {
+    try {
+      await clearCart();
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+      // Error will be handled by CartContext
+    } finally {
+      setShowClearCartModal(false);
     }
   };
 
@@ -104,20 +136,18 @@ export default function CartPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-          <p className="text-gray-600 mt-2">{cartItems.length} items in your cart</p>
-
-          {/* Error Display */}
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-red-700 text-sm font-medium">{error}</p>
-              </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
+              <p className="text-gray-600 mt-2">{cartItems.length} items in your cart</p>
             </div>
-          )}
+            <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full">
+              <span className="font-semibold text-lg">{cartItems.reduce((total, item) => total + item.quantity, 0)}</span>
+              <span className="text-sm ml-1">total items</span>
+            </div>
+          </div>
+
+
         </div>
 
         {cartItems.length === 0 ? (
@@ -198,7 +228,7 @@ export default function CartPage() {
                           </p>
                         </div>
                         <button
-                          onClick={() => removeItem(item.productId)}
+                          onClick={() => handleRemoveItem(item.productId)}
                           className="text-red-500 hover:text-red-700 p-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={loading || actionLoading === item.productId}
                           title="Remove item from cart"
@@ -269,11 +299,7 @@ export default function CartPage() {
                     </a>
                   </div>
                   <button
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to clear your cart? This action cannot be undone.')) {
-                        clearCart();
-                      }
-                    }}
+                    onClick={handleClearCart}
                     className="w-full text-red-600 hover:text-red-700 text-sm py-2 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={loading || cartItems.length === 0}
                   >
@@ -302,6 +328,31 @@ export default function CartPage() {
       </div>
 
       <Footer />
+
+      {/* Confirmation Modals */}
+       <ConfirmationModal
+         isOpen={showRemoveModal}
+         onClose={() => setShowRemoveModal(false)}
+         onConfirm={confirmRemoveItem}
+         title="Remove Item"
+         message="Are you sure you want to remove this item from your cart?"
+         confirmText="Remove"
+         cancelText="Cancel"
+         isDestructive={true}
+       />
+
+       <ConfirmationModal
+         isOpen={showClearCartModal}
+         onClose={() => setShowClearCartModal(false)}
+         onConfirm={confirmClearCart}
+         title="Clear Cart"
+         message="Are you sure you want to clear your entire cart? This action cannot be undone."
+         confirmText="Clear Cart"
+         cancelText="Cancel"
+         isDestructive={true}
+       />
+
+
     </div>
   );
 }

@@ -5,16 +5,19 @@
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 // Correctly alias 'allProducts' to 'products' when destructuring
-import { useProducts, DisplayProduct } from '../../hooks/useProducts'; 
+import { useProducts, DisplayProduct } from '../../hooks/useProducts';
 import { useCart } from '../../contexts/CartContext';
 import ProductCard from '../../components/ProductCard';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { SuccessModal } from '../../components/Modal';
 
 export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [addedProduct, setAddedProduct] = useState<DisplayProduct | null>(null);
   const router = useRouter();
 
   // --- THE FIX ---
@@ -26,7 +29,7 @@ export default function ProductsPage() {
   const categories = useMemo(() => {
     // We add a defensive check here to be safe
     if (!products || products.length === 0) return [{ label: 'All Categories', value: 'all' }];
-    
+
     const uniqueCategories = [...new Set(products.map(p => p.category).filter(Boolean))];
     return [
       { label: 'All Categories', value: 'all' },
@@ -36,7 +39,7 @@ export default function ProductsPage() {
 
   const filteredProducts = useMemo(() => {
     if (!products) return []; // Defensive check
-    
+
     return products
       .filter(product => {
         const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -63,20 +66,31 @@ export default function ProductsPage() {
     try {
       const dbId = parseInt(product.id.replace('db-', ''));
       await addToCart(dbId, 1, product.quantity);
-
-      alert(`${product.name} added to cart!`);
+      setAddedProduct(product);
+      setShowSuccessModal(true);
     } catch (err) {
       console.error('Add to cart error:', err);
-      alert('Failed to add item to cart.');
+      // Error handling is already done in the CartContext
     }
   };
 
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    setAddedProduct(null);
+  };
+
+  const handleViewCart = () => {
+    setShowSuccessModal(false);
+    setAddedProduct(null);
+    router.push('/cart');
+  };
+
   if (loading) {
-      return <div>Loading products...</div>;
+    return <div>Loading products...</div>;
   }
 
   if (error) {
-      return <div>Error loading products: {error}</div>;
+    return <div>Error loading products: {error}</div>;
   }
 
   return (
@@ -86,17 +100,27 @@ export default function ProductsPage() {
         <h1 className="text-4xl font-bold text-white mb-8">All Products</h1>
         {/* Filtering and sorting UI would go here */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map(product => (
-                <ProductCard 
-                  key={product.id} 
-                  product={product as DisplayProduct} 
-                  onAddToCart={() => handleAddToCart(product)}
-                  cartLoading={cartLoading}
-                />
-            ))}
+          {filteredProducts.map(product => (
+            <ProductCard
+              key={product.id}
+              product={product as DisplayProduct}
+              onAddToCart={() => handleAddToCart(product)}
+              cartLoading={cartLoading}
+            />
+          ))}
         </div>
       </div>
       <Footer />
+      {showSuccessModal && addedProduct && (
+        <SuccessModal
+          isOpen={showSuccessModal}
+          onClose={handleSuccessModalClose}
+          title="Added to Cart!"
+          message={`${addedProduct.name} has been added to your cart.`}
+          actionText="View Cart"
+          onAction={handleViewCart}
+        />
+      )}
     </div>
   );
 }

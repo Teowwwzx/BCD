@@ -8,6 +8,7 @@ import { useProduct } from '../hooks/useProduct';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../contexts/CartContext';
 import { useRouter } from 'next/navigation'; // Import useRouter
+import { SuccessModal } from './Modal';
 import type { Product } from '../types'; // Import Product type
 
 
@@ -17,6 +18,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
     const { addToCart, loading: cartLoading } = useCart();
     const { isLoggedIn, user } = useAuth();
     const router = useRouter();
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
 
     const handleAddToCart = async () => {
@@ -27,10 +29,24 @@ export default function ProductDetailClient({ id }: { id: string }) {
         }
 
         if (product) {
-            // --- THIS IS THE FIX ---
-            // We now pass the product's stock_quantity as the third argument.
-            await addToCart(product.id, quantity, product.stock_quantity);
+            try {
+                // We now pass the product's stock_quantity as the third argument.
+                await addToCart(product.id, quantity, product.stock_quantity);
+                setShowSuccessModal(true);
+            } catch (error) {
+                console.error('Error adding to cart:', error);
+                // Error handling is already done in the CartContext
+            }
         }
+    };
+
+    const handleSuccessModalClose = () => {
+        setShowSuccessModal(false);
+    };
+
+    const handleViewCart = () => {
+        setShowSuccessModal(false);
+        router.push('/cart');
     };
 
     if (loading) return <div>Loading Product...</div>;
@@ -86,6 +102,16 @@ export default function ProductDetailClient({ id }: { id: string }) {
                     )}
                 </div>
             </div>
+
+            {/* Success Modal */}
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={handleSuccessModalClose}
+                title="Added to Cart!"
+                message={`${product?.name} (${quantity} ${quantity === 1 ? 'item' : 'items'}) has been added to your cart.`}
+                actionText="View Cart"
+                onAction={handleViewCart}
+            />
         </div>
     );
 }

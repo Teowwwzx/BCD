@@ -186,12 +186,23 @@ export const usePayments = () => {
       // Type assertion for window.ethereum
       const ethereum = window.ethereum as any;
 
-      // Ensure we have access to accounts
-      await ethereum.request({ method: 'eth_requestAccounts' });
+      // Ensure we have access to accounts with error handling
+      try {
+        await ethereum.request({ method: 'eth_requestAccounts' });
+      } catch (accountError) {
+        console.error('Failed to request accounts:', accountError);
+        throw new Error('Failed to connect to wallet. Please try again.');
+      }
 
-      const provider = new ethers.BrowserProvider(ethereum);
-      const signer = await provider.getSigner();
-      const userAddress = await signer.getAddress();
+      let provider, signer, userAddress;
+      try {
+        provider = new ethers.BrowserProvider(ethereum);
+        signer = await provider.getSigner();
+        userAddress = await signer.getAddress();
+      } catch (providerError) {
+        console.error('Failed to initialize provider:', providerError);
+        throw new Error('Failed to initialize wallet connection. Please refresh and try again.');
+      }
 
       // Validate and use the recipient address directly (no ENS resolution needed on local network)
       if (!ethers.isAddress(paymentData.recipientAddress)) {
@@ -199,8 +210,14 @@ export const usePayments = () => {
       }
       const resolvedRecipientAddress = paymentData.recipientAddress;
 
-      // Check wallet balance
-      const balance = await provider.getBalance(userAddress);
+      // Check wallet balance with error handling
+      let balance;
+      try {
+        balance = await provider.getBalance(userAddress);
+      } catch (balanceError) {
+        console.error('Failed to get wallet balance:', balanceError);
+        throw new Error('Unable to check wallet balance. Please try again.');
+      }
       
       // Convert USD amount to ETH (using a simple conversion for demo purposes)
       // In production, you would fetch real-time exchange rates
@@ -212,15 +229,28 @@ export const usePayments = () => {
         throw new Error(`Insufficient balance. Required: ${ethAmount.toFixed(6)} ETH (~$${paymentData.amount}), Available: ${formatEther(balance)} ETH`);
       }
 
-      // Estimate gas for the transaction
-      const gasEstimate = await provider.estimateGas({
-        to: resolvedRecipientAddress,
-        value: amountInWei,
-      });
+      // Estimate gas for the transaction with error handling
+      let gasEstimate;
+      try {
+        gasEstimate = await provider.estimateGas({
+          to: resolvedRecipientAddress,
+          value: amountInWei,
+        });
+      } catch (gasError) {
+        console.error('Gas estimation failed:', gasError);
+        // Use a default gas limit if estimation fails
+        gasEstimate = BigInt(21000); // Standard ETH transfer gas limit
+      }
 
       // Get current gas price (use legacy gas pricing for local network)
-      const feeData = await provider.getFeeData();
-      const gasPrice = feeData.gasPrice || parseEther('0.00000002'); // Fallback gas price
+      let gasPrice;
+      try {
+        const feeData = await provider.getFeeData();
+        gasPrice = feeData.gasPrice || parseEther('0.00000002'); // Fallback gas price
+      } catch (feeError) {
+        console.error('Fee data fetch failed:', feeError);
+        gasPrice = parseEther('0.00000002'); // Use fallback gas price
+      }
       
       const estimatedGasCost = gasEstimate * gasPrice;
       const totalCost = amountInWei + estimatedGasCost;
@@ -275,10 +305,33 @@ export const usePayments = () => {
         type: 0, // Use legacy transaction type to avoid EIP-1559 issues on local network
       };
 
-      const txResponse = await signer.sendTransaction(transaction);
+      let txResponse;
+      try {
+        txResponse = await signer.sendTransaction(transaction);
+      } catch (txError) {
+        // Handle specific transaction errors
+        if (txError && typeof txError === 'object' && 'code' in txError) {
+          if (txError.code === 'ACTION_REJECTED') {
+            throw new Error('Transaction was rejected by user');
+          } else if (txError.code === 'INSUFFICIENT_FUNDS') {
+            throw new Error('Insufficient funds for transaction');
+          }
+        }
+        // throw new Error('Failed to send transaction. Please try again.');
+      }
       
-      // Wait for transaction confirmation
-      const receipt = await txResponse.wait();
+      // Wait for transaction confirmation with timeout
+      let receipt;
+      try {
+        receipt = await Promise.race([
+          txResponse.wait(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Transaction confirmation timeout')), 60000)
+          )
+        ]);
+      } catch (receiptError) {
+        throw new Error('Transaction confirmation failed. Please check your transaction hash manually.');
+      }
 
       if (!receipt || receipt.status !== 1) {
         throw new Error('Transaction failed or was reverted');
@@ -323,35 +376,41 @@ export const usePayments = () => {
         gasPrice: formatEther(receipt.gasPrice || gasPrice),
       };
     } catch (error) {
-      console.error('DEBUG: processWalletPayment error caught:', error);
-      console.error('DEBUG: Error type:', typeof error);
-      console.error('DEBUG: Error instanceof Error:', error instanceof Error);
-      if (error instanceof Error) {
-        console.error('DEBUG: Error message:', error.message);
-        console.error('DEBUG: Error stack:', error.stack);
-      }
+      console.error('Wallet payment error:', error);
       
-      // console.error('Wallet payment error:', error);
       let errorMessage = 'Wallet payment failed';
       
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null) {
-        // Handle ethers.js specific errors
+        // Handle ethers.js and JSON-RPC specific errors
         if ('code' in error) {
           switch (error.code) {
             case 'ACTION_REJECTED':
+            case 4001:
               errorMessage = 'Transaction was rejected by user';
               break;
             case 'INSUFFICIENT_FUNDS':
+            case -32603:
               errorMessage = 'Insufficient funds for transaction';
               break;
             case 'NETWORK_ERROR':
+            case -32002:
               errorMessage = 'Network error. Please check your connection';
+              break;
+            case -32000:
+              errorMessage = 'Transaction failed. Please try again.';
+              break;
+            case 'UNPREDICTABLE_GAS_LIMIT':
+              errorMessage = 'Unable to estimate gas. Transaction may fail.';
               break;
             default:
               errorMessage = ('message' in error && typeof error.message === 'string') ? error.message : 'Transaction failed';
           }
+        } else if ('reason' in error && typeof error.reason === 'string') {
+          errorMessage = error.reason;
+        } else if ('message' in error && typeof error.message === 'string') {
+          errorMessage = error.message;
         }
       }
       
