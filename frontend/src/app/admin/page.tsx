@@ -192,12 +192,6 @@ export default function AdminDashboardPage() {
       <div className="mt-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Order Oversight & Dispute Resolution</h2>
-          <Link
-            href="/admin/orders"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            View All Orders
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
