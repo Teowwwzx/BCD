@@ -525,7 +525,7 @@ router.post('/checkout', async (req, res) => {
 // ----------------------------------------------------------------
 router.get('/', async (req, res) => {
   try {
-    const { buyer_id, order_status, payment_status, limit, offset } = req.query;
+    const { buyer_id, seller_id, order_status, payment_status, limit, offset } = req.query;
 
     // Build where clause for filtering
     const whereClause = {};
@@ -555,6 +555,18 @@ router.get('/', async (req, res) => {
         });
       }
       whereClause.payment_status = payment_status;
+    }
+
+    // Add support for filtering by seller_id via related orderItems
+    if (seller_id) {
+      const sellerIdInt = parseInt(String(seller_id));
+      if (isNaN(sellerIdInt)) {
+        return res.status(400).json({ success: false, error: 'Invalid seller_id format.' });
+      }
+      // When filtering by seller, we need orders that have at least one orderItem with this seller_id
+      whereClause.orderItems = {
+        some: { seller_id: sellerIdInt }
+      };
     }
 
     // Parse pagination parameters

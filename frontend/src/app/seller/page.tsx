@@ -196,7 +196,9 @@ const SellPage: React.FC = () => {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Avg. Order Value</p>
-                    <p className="text-2xl font-semibold text-gray-900">{(totalRevenue / totalSales).toFixed(3)} ETH</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {totalSales > 0 ? (totalRevenue / totalSales).toFixed(3) : '0.000'} ETH
+                    </p>
                   </div>
                 </div>
               </div>
