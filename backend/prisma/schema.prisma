@@ -194,15 +194,19 @@ model PaymentTransaction {
   id                 Int                     @id @default(autoincrement())
   orderId            Int                     @map("order_id")
   amount             Decimal                 @db.Decimal(18, 8)
-  tx_hash            String                  @unique @db.VarChar(66)
+  tx_hash            String                  @unique @db.VarChar(255)
   blockNumber        BigInt?                 @map("block_number")
   gasUsed            BigInt?                 @map("gas_used")
   gas_price_gwei     Decimal?                @db.Decimal(18, 8)
-  from_address       String                  @db.VarChar(42)
-  to_address         String                  @db.VarChar(42)
+  from_address       String                  @db.VarChar(255)
+  to_address         String                  @db.VarChar(255)
   status             transaction_status_enum @default(pending)
   confirmation_count Int?                    @default(0)
+  payment_method     String?                 @default("blockchain") @db.VarChar(50)
+  gateway_response   String?                 @db.Text
+  processing_fee     Decimal?                @default(0) @db.Decimal(10, 2)
   createdAt          DateTime?               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime?               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   confirmed_at       DateTime?               @db.Timestamptz(6)
   order              Order                   @relation(fields: [orderId], references: [id], onUpdate: NoAction)
 
@@ -370,6 +374,22 @@ model wishlist {
   users      User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, product_id], map: "unique_user_product_wishlist")
+}
+
+model ShippingMethod {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  baseRate    Decimal   @map("base_rate") @db.Decimal(10, 2)
+  perKgRate   Decimal?  @map("per_kg_rate") @db.Decimal(10, 2)
+  perKmRate   Decimal?  @map("per_km_rate") @db.Decimal(10, 2)
+  minDeliveryDays Int   @map("min_delivery_days")
+  maxDeliveryDays Int   @map("max_delivery_days")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("shipping_methods")
 }
 
 enum address_type_enum {

@@ -1,0 +1,596 @@
+{
+  "info": {
+    "_postman_id": "payments-enhanced-api-collection",
+    "name": "BCD Enhanced Payments API",
+    "description": "Complete test collection for BCD Marketplace Enhanced Payments API with Gateway and Wallet Transfer support",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Direct Blockchain Payment",
+      "item": [
+        {
+          "name": "Create Direct Payment - Successful",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 1,\n    \"amount\": \"99.99\",\n    \"tx_hash\": \"0x1234567890abcdef1234567890abcdef12345678\",\n    \"blockNumber\": 12345678,\n    \"from_address\": \"0xabc123def456789012345678901234567890abcd\",\n    \"to_address\": \"0xdef456789012345678901234567890abcdef1234\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Direct Payment - Missing Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 2,\n    \"amount\": \"50.00\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payment Gateway Integration",
+      "item": [
+        {
+          "name": "Gateway Payment - Stripe Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 3,\n    \"amount\": \"149.99\",\n    \"paymentMethod\": \"stripe\",\n    \"paymentToken\": \"tok_1234567890abcdef\",\n    \"customerEmail\": \"customer@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/gateway",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "gateway"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Gateway Payment - PayPal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 4,\n    \"amount\": \"75.50\",\n    \"paymentMethod\": \"paypal\",\n    \"paymentToken\": \"PAYID-ABCD1234\",\n    \"customerEmail\": \"paypal.user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/gateway",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "gateway"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Gateway Payment - Missing Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 5,\n    \"amount\": \"25.00\",\n    \"paymentMethod\": \"stripe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/gateway",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "gateway"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Gateway Payment - Large Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 6,\n    \"amount\": \"999.99\",\n    \"paymentMethod\": \"stripe\",\n    \"paymentToken\": \"tok_large_payment_test\",\n    \"customerEmail\": \"bigspender@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/gateway",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "gateway"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Wallet-to-Wallet Transfers",
+      "item": [
+        {
+          "name": "Wallet Transfer - Successful",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 7,\n    \"amount\": \"89.99\",\n    \"fromUserId\": 1,\n    \"toUserId\": 2,\n    \"description\": \"Payment for premium product order\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/wallet-transfer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "wallet-transfer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wallet Transfer - Same User Error",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 8,\n    \"amount\": \"50.00\",\n    \"fromUserId\": 1,\n    \"toUserId\": 1,\n    \"description\": \"Self transfer test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/wallet-transfer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "wallet-transfer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wallet Transfer - Missing Wallet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 9,\n    \"amount\": \"30.00\",\n    \"fromUserId\": 999,\n    \"toUserId\": 2,\n    \"description\": \"Transfer from non-existent wallet\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/wallet-transfer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "wallet-transfer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wallet Transfer - Large Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 10,\n    \"amount\": \"1500.00\",\n    \"fromUserId\": 1,\n    \"toUserId\": 3,\n    \"description\": \"Large wallet transfer for bulk order\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/wallet-transfer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "wallet-transfer"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payment Management",
+      "item": [
+        {
+          "name": "Get All Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payments - Filter by Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments?status=confirmed&limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "confirmed"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payments - Filter by Order ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments?order_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "order_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Payment Status - Confirm",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"confirmed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Payment Status - Failed",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"failed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Payment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments/999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "999"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Testing",
+      "item": [
+        {
+          "name": "Invalid Order ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": \"invalid\",\n    \"amount\": \"50.00\",\n    \"paymentToken\": \"tok_test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/gateway",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "gateway"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 11,\n    \"amount\": \"-50.00\",\n    \"fromUserId\": 1,\n    \"toUserId\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/wallet-transfer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "wallet-transfer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Non-existent Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 99999,\n    \"amount\": \"100.00\",\n    \"paymentToken\": \"tok_test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/gateway",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "gateway"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderId\": 1,\n    \"amount\": \"99.99\",\n    \"paymentToken\": \"tok_duplicate_test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/gateway",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "gateway"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ]
+}

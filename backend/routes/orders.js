@@ -6,6 +6,7 @@
  * METHOD   | URL               | DESCRIPTION
  * ---------|-------------------|----------------------------------
  * POST     | /                 | Create a new order from cart checkout.
+ * POST     | /checkout         | Enhanced checkout with shipping calculation.
  * GET      | /                 | Get all orders (with filtering).
  * GET      | /:id              | Get a single order by ID.
  * PUT      | /:id              | Update an existing order status.
@@ -22,6 +23,31 @@
  *     "shippingAddressId": 2,
  *     "billingAddressId": 3,
  *     "paymentMethod": "crypto"
+ * }
+ *
+ * --- POST /checkout (Enhanced Checkout) ---
+ * Request Body (Gateway Payment):
+ * {
+ *     "buyerId": 1,
+ *     "shippingAddressId": 2,
+ *     "billingAddressId": 3,
+ *     "shippingMethodId": 1,
+ *     "paymentMethod": "gateway",
+ *     "paymentToken": "tok_1234567890",
+ *     "customerEmail": "customer@example.com",
+ *     "couponCode": "SAVE10"
+ * }
+ *
+ * Request Body (Wallet Payment):
+ * {
+ *     "buyerId": 1,
+ *     "shippingAddressId": 2,
+ *     "billingAddressId": 3,
+ *     "shippingMethodId": 1,
+ *     "paymentMethod": "wallet",
+ *     "fromUserId": 1,
+ *     "toUserId": 2,
+ *     "couponCode": "SAVE10"
  * }
  *
  * --- PUT /:id ---
@@ -181,6 +207,315 @@ router.post('/', async (req, res) => {
     res.status(201).json({ success: true, message: 'Checkout successful!', data: newOrder });
   } catch (error) {
     console.error('Error during checkout:', error);
+    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+  }
+});
+
+// ----------------------------------------------------------------
+// ENHANCED CHECKOUT - Complete checkout with shipping and payment
+// ----------------------------------------------------------------
+router.post('/checkout', async (req, res) => {
+  try {
+    const {
+      buyerId,
+      shippingAddressId,
+      billingAddressId,
+      shippingMethodId,
+      paymentMethod = 'gateway',
+      paymentToken,
+      customerEmail,
+      couponCode
+    } = req.body;
+
+    // Validate required fields
+    if (!buyerId || !shippingAddressId || !billingAddressId || !shippingMethodId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Buyer ID, shipping address ID, billing address ID, and shipping method ID are required.'
+      });
+    }
+
+    if (paymentMethod === 'gateway' && !paymentToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment token is required for gateway payments.'
+      });
+    }
+
+    // Validate numeric IDs
+    const buyerIdInt = parseInt(buyerId);
+    const shippingAddressIdInt = parseInt(shippingAddressId);
+    const billingAddressIdInt = parseInt(billingAddressId);
+    const shippingMethodIdInt = parseInt(shippingMethodId);
+
+    if (isNaN(buyerIdInt) || isNaN(shippingAddressIdInt) || isNaN(billingAddressIdInt) || isNaN(shippingMethodIdInt)) {
+      return res.status(400).json({ success: false, error: 'Invalid ID format.' });
+    }
+
+    // Get user's cart items
+    const cartItems = await prisma.cartItem.findMany({
+      where: { userId: buyerIdInt },
+      include: {
+        product: {
+          include: {
+            images: { take: 1 }
+          }
+        }
+      }
+    });
+
+    if (cartItems.length === 0) {
+      return res.status(400).json({ success: false, error: 'Cart is empty.' });
+    }
+
+    // Validate addresses exist
+    const [shippingAddress, billingAddress] = await Promise.all([
+      prisma.user_addresses.findUnique({ where: { id: shippingAddressIdInt } }),
+      prisma.user_addresses.findUnique({ where: { id: billingAddressIdInt } })
+    ]);
+
+    if (!shippingAddress || !billingAddress) {
+      return res.status(404).json({ success: false, error: 'Shipping or billing address not found.' });
+    }
+
+    // Get shipping method
+    const shippingMethod = await prisma.shippingMethod.findUnique({
+      where: { id: shippingMethodIdInt }
+    });
+
+    if (!shippingMethod || !shippingMethod.isActive) {
+      return res.status(404).json({ success: false, error: 'Shipping method not found or inactive.' });
+    }
+
+    // Calculate order totals
+    const subtotal = cartItems.reduce((sum, item) => {
+      return sum + (parseFloat(item.product.price) * item.quantity);
+    }, 0);
+
+    // Calculate total weight for shipping
+    const totalWeight = cartItems.reduce((sum, item) => {
+      const weight = parseFloat(item.product.weightKg) || 0;
+      return sum + (weight * item.quantity);
+    }, 0);
+
+    // Calculate shipping cost (simplified - using base rate + per kg rate)
+    const shippingCost = parseFloat(shippingMethod.baseRate) + 
+                        (parseFloat(shippingMethod.perKgRate || 0) * totalWeight);
+
+    // Apply coupon if provided
+    let discountAmount = 0;
+    let appliedCoupon = null;
+    if (couponCode) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: couponCode }
+      });
+
+      if (coupon && coupon.status === 'active' && 
+          (!coupon.minimum_order_amount || subtotal >= parseFloat(coupon.minimum_order_amount))) {
+        if (coupon.discount_type === 'percentage') {
+          discountAmount = (subtotal * parseFloat(coupon.discount_value)) / 100;
+        } else {
+          discountAmount = parseFloat(coupon.discount_value);
+        }
+
+        // Apply maximum discount limit if set
+        if (coupon.maximum_discount_amount && discountAmount > parseFloat(coupon.maximum_discount_amount)) {
+          discountAmount = parseFloat(coupon.maximum_discount_amount);
+        }
+
+        appliedCoupon = coupon;
+      }
+    }
+
+    // Calculate tax (simplified - 10% tax rate)
+    const taxRate = 0.10;
+    const taxableAmount = subtotal - discountAmount;
+    const taxAmount = taxableAmount * taxRate;
+
+    // Calculate final total
+    const totalAmount = subtotal - discountAmount + taxAmount + shippingCost;
+
+    // Create order and process payment in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the main Order record
+      const order = await tx.order.create({
+        data: {
+          buyer_id: buyerIdInt,
+          shippingAddressId: shippingAddressIdInt,
+          billingAddressId: billingAddressIdInt,
+          order_status: 'pending',
+          payment_status: 'pending',
+          subtotal: subtotal.toString(),
+          taxAmount: taxAmount.toString(),
+          shippingAmount: shippingCost.toString(),
+          totalAmount: totalAmount.toString()
+        },
+        include: {
+          users: { select: { id: true, username: true, email: true } }
+        }
+      });
+
+      // 2. Create OrderItem records
+      await tx.orderItem.createMany({
+        data: cartItems.map(item => ({
+          orderId: order.id,
+          productId: item.productId,
+          seller_id: item.product.sellerId,
+          quantity: item.quantity,
+          unitPrice: item.product.price,
+          totalPrice: (parseFloat(item.product.price) * item.quantity).toString(),
+          product_name: item.product.name,
+          product_sku: item.product.sku,
+          product_image_url: item.product.images?.[0]?.imageUrl
+        }))
+      });
+
+      // 3. Create shipment record
+      const shipment = await tx.shipment.create({
+        data: {
+          orderId: order.id,
+          shipping_method: shippingMethod.name,
+          shipping_cost: shippingCost.toString(),
+          weight_kg: totalWeight.toString(),
+          status: 'pending'
+        }
+      });
+
+      // 4. Record coupon usage if applicable
+      if (appliedCoupon) {
+        await tx.coupon_usage.create({
+          data: {
+            coupon_id: appliedCoupon.id,
+            user_id: buyerIdInt,
+            order_id: order.id,
+            discount_amount: discountAmount.toString()
+          }
+        });
+
+        // Update coupon usage count
+        await tx.coupon.update({
+          where: { id: appliedCoupon.id },
+          data: { usage_count: { increment: 1 } }
+        });
+      }
+
+      // 5. Process payment based on method
+       let paymentResult = null;
+       if (paymentMethod === 'gateway') {
+         // Simulate gateway payment processing
+         const gatewayResponse = {
+           success: true,
+           transactionId: `gw_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+           gatewayStatus: 'succeeded',
+           processingFee: (totalAmount * 0.029 + 0.30).toFixed(2)
+         };
+
+         paymentResult = await tx.paymentTransaction.create({
+           data: {
+             orderId: order.id,
+             amount: totalAmount.toString(),
+             tx_hash: gatewayResponse.transactionId,
+             from_address: customerEmail || order.users.email,
+             to_address: 'gateway_merchant_account',
+             status: gatewayResponse.success ? 'confirmed' : 'failed',
+             payment_method: 'gateway',
+             gateway_response: JSON.stringify(gatewayResponse),
+             processing_fee: gatewayResponse.processingFee
+           }
+         });
+
+         // Update order payment status
+         await tx.order.update({
+           where: { id: order.id },
+           data: { payment_status: gatewayResponse.success ? 'paid' : 'failed' }
+         });
+       } else if (paymentMethod === 'wallet') {
+         // Handle wallet-to-wallet payment
+         const { fromUserId, toUserId } = req.body;
+
+         if (!fromUserId || !toUserId) {
+           throw new Error('fromUserId and toUserId are required for wallet payments.');
+         }
+
+         // Get wallet addresses for both users
+         const [fromWallet, toWallet] = await Promise.all([
+           tx.wallet.findUnique({ where: { userId: parseInt(fromUserId) } }),
+           tx.wallet.findUnique({ where: { userId: parseInt(toUserId) } })
+         ]);
+
+         if (!fromWallet || !toWallet) {
+           throw new Error('Wallet not found for one or both users.');
+         }
+
+         // Simulate wallet transfer
+         const walletTransfer = {
+           success: true,
+           transactionHash: `0x${Math.random().toString(16).substr(2, 64)}`,
+           blockNumber: Math.floor(Math.random() * 1000000) + 15000000,
+           gasUsed: Math.floor(Math.random() * 50000) + 21000,
+           gasPriceGwei: (Math.random() * 50 + 10).toFixed(2)
+         };
+
+         paymentResult = await tx.paymentTransaction.create({
+           data: {
+             orderId: order.id,
+             amount: totalAmount.toString(),
+             tx_hash: walletTransfer.transactionHash,
+             blockNumber: walletTransfer.blockNumber,
+             gasUsed: walletTransfer.gasUsed,
+             gas_price_gwei: walletTransfer.gasPriceGwei,
+             from_address: fromWallet.walletAddress,
+             to_address: toWallet.walletAddress,
+             status: walletTransfer.success ? 'confirmed' : 'failed',
+             payment_method: 'wallet',
+             processing_fee: '0.00'
+           }
+         });
+
+         // Update order payment status
+         await tx.order.update({
+           where: { id: order.id },
+           data: { payment_status: walletTransfer.success ? 'paid' : 'failed' }
+         });
+       }
+
+      // 6. Update product stock
+      for (const item of cartItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { quantity: { decrement: item.quantity } }
+        });
+      }
+
+      // 7. Clear cart
+      await tx.cartItem.deleteMany({
+        where: { userId: buyerIdInt }
+      });
+
+      return {
+        order,
+        shipment,
+        payment: paymentResult,
+        appliedCoupon,
+        breakdown: {
+          subtotal,
+          discountAmount,
+          taxAmount,
+          shippingCost,
+          totalAmount,
+          totalWeight
+        }
+      };
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Enhanced checkout completed successfully!',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error during enhanced checkout:', error);
     res.status(500).json({ success: false, error: error.message || 'Internal server error' });
   }
 });

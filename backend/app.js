@@ -92,6 +92,7 @@ const notificationRoutes = require('./routes/notifications');
 const statsRoutes = require('./routes/stats');
 const addressesRoutes = require('./routes/addresses');
 const paymentsRoutes = require('./routes/payments');
+const shippingMethodsRoutes = require('./routes/shipping-methods');
 
 console.log('Loading users routes...');
 app.use('/api/auth', authRoutes);
@@ -146,6 +147,10 @@ console.log('Loading payments routes...');
 app.use('/api/payments', paymentsRoutes);
 console.log('✓ Payments routes loaded');
 
+console.log('Loading shipping methods routes...');
+app.use('/api/shipping-methods', shippingMethodsRoutes);
+console.log('✓ Shipping methods routes loaded');
+
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -164,7 +169,9 @@ app.get('/', (req, res) => {
       categories: '/api/categories',
       notifications: '/api/notifications',
       stats: '/api/stats',
-      addresses: '/api/addresses'
+      addresses: '/api/addresses',
+      payments: '/api/payments',
+      shippingMethods: '/api/shipping-methods'
     }
   });
 });
