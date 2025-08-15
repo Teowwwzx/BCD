@@ -12,6 +12,16 @@ interface AuthCredentials {
   password?: string; // Password can be optional for wallet-only sign-in later
 }
 
+// Define the shape of the registration data
+interface RegisterData {
+  username: string;
+  email: string;
+  password: string;
+  f_name: string;
+  l_name: string;
+  phone?: string;
+}
+
 // Define the context shape
 interface AuthContextType {
   user: User | null;
@@ -22,9 +32,12 @@ interface AuthContextType {
   isWalletConnected: boolean;
   error: string | null;
   login: (credentials: AuthCredentials) => Promise<boolean>;
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   connectWallet: () => Promise<string | null>;
   clearError: () => void;
+  verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
+  resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 // Create the context
@@ -147,6 +160,85 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const verifyEmail = async (token: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        error: data.success ? undefined : (data.error || 'Email verification failed')
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: 'Network error. Please check your connection and try again.'
+      };
+    }
+  };
+
+  const resendVerificationEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        error: data.success ? undefined : (data.error || 'Failed to resend verification email')
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: 'Network error. Please check your connection and try again.'
+      };
+    }
+  };
+
+  const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
+    setAuthIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('Making API call to:', `${API_BASE_URL}/auth/register`);
+      console.log('With data:', userData);
+      
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      console.log('API response status:', response.status);
+      const data = await response.json();
+      console.log('API response data:', data);
+
+      if (response.ok && data.success) {
+        return { success: true };
+      } else {
+        const errorMessage = data.error || data.message || 'Registration failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    } catch (err: any) {
+      console.error('Network error in register function:', err);
+      const errorMessage = err.message || 'Network error occurred';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setAuthIsLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -168,9 +260,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isWalletConnected: !!walletAddress,
     error,
     login,
+    register,
     logout,
     connectWallet,
     clearError,
+    verifyEmail,
+    resendVerificationEmail,
   };
 
   return (
