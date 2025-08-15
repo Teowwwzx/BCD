@@ -8,19 +8,23 @@ datasource db {
 }
 
 model User {
-  id              Int               @id @default(autoincrement())
-  username        String            @unique @db.VarChar(50)
-  email           String            @unique @db.VarChar(255)
-  passwordHash    String            @map("password_hash") @db.VarChar(255)
-  f_name          String?           @db.VarChar(100)
-  l_name          String?           @db.VarChar(100)
-  phone           String?           @db.VarChar(20)
-  dob             DateTime?         @db.Date
-  profileImageUrl String?           @map("profile_image_url") @db.VarChar(500)
-  user_role       user_role_enum?   @default(buyer)
-  status          user_status_enum? @default(pending_verification)
-  createdAt       DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      Int               @id @default(autoincrement())
+  username                String            @unique @db.VarChar(50)
+  email                   String            @unique @db.VarChar(255)
+  passwordHash            String            @map("password_hash") @db.VarChar(255)
+  f_name                  String?           @db.VarChar(100)
+  l_name                  String?           @db.VarChar(100)
+  phone                   String?           @db.VarChar(20)
+  dob                     DateTime?         @db.Date
+  profileImageUrl         String?           @map("profile_image_url") @db.VarChar(500)
+  user_role               user_role_enum?   @default(buyer)
+  status                  user_status_enum? @default(pending_verification)
+  isEmailVerified         Boolean?          @default(false) @map("is_email_verified")
+  emailVerificationToken  String?           @map("email_verification_token") @db.VarChar(255)
+  passwordResetToken      String?           @map("password_reset_token") @db.VarChar(255)
+  passwordResetExpires    DateTime?         @map("password_reset_expires") @db.Timestamptz(6)
+  createdAt               DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   audit_log       audit_log[]
   cartItems       CartItem[]
   coupon_usage    coupon_usage[]

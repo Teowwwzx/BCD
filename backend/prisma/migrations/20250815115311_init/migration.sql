@@ -53,6 +53,10 @@ CREATE TABLE "public"."users" (
     "profile_image_url" VARCHAR(500),
     "user_role" "public"."user_role_enum" DEFAULT 'buyer',
     "status" "public"."user_status_enum" DEFAULT 'pending_verification',
+    "is_email_verified" BOOLEAN DEFAULT false,
+    "email_verification_token" VARCHAR(255),
+    "password_reset_token" VARCHAR(255),
+    "password_reset_expires" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
 
