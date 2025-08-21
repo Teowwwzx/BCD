@@ -159,7 +159,15 @@ export default function VerifyEmailPage() {
                   onClick={() => router.push('/auth')}
                   className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                 >
-                  Go to Login
+                  Back to Login
+                </button>
+              )}
+              {status === 'expired' && (
+                <button
+                  onClick={() => router.push('/signup')}
+                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Register again
                 </button>
               )}
 
@@ -179,13 +187,6 @@ export default function VerifyEmailPage() {
                   )}
                 </button>
               )}
-
-              <button
-                onClick={() => router.push('/auth')}
-                className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-              >
-                Back to Login
-              </button>
             </div>
           </div>
         </div>

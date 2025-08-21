@@ -98,7 +98,6 @@ export interface Product {
     createdAt: string;
     updatedAt: string;
 
-    // Relational fields
     seller: {
         username: string;
     };
@@ -139,7 +138,6 @@ export interface Order {
     createdAt: string;
     updatedAt: string;
 
-    // Relations
     orderItems: OrderItem[];
     shippingAddress: Address;
     billingAddress: Address;
@@ -174,7 +172,6 @@ export interface Review {
     createdAt: string;
     updatedAt: string;
 
-    // Relational fields
     user: {
         username: string;
         profileImageUrl?: string | null;

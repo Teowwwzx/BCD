@@ -91,7 +91,7 @@ app.get('/health', async (req, res) => {
 });
 
 // Import and test routes one by one
-const authRoutes = require('./routes/auth');
+const authRoutesFactory = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const productsRoutes = require('./routes/products');
 const ordersRoutes = require('./routes/orders');
@@ -106,8 +106,12 @@ const paymentsRoutes = require('./routes/payments');
 const shippingMethodsRoutes = require('./routes/shipping-methods');
 const walletRoutes = require('./routes/wallet');
 
-console.log('Loading users routes...');
+console.log('Loading auth routes...');
+const authRoutes = authRoutesFactory(prisma);
 app.use('/api/auth', authRoutes);
+console.log('✓ Auth routes loaded');
+
+console.log('Loading users routes...');
 app.use('/api/users', usersRoutes);
 console.log('✓ Users routes loaded');
 

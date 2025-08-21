@@ -21,6 +21,7 @@ model User {
   status          user_status_enum? @default(pending_verification)
   createdAt       DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tokens          Token[]
   audit_log       audit_log[]
   cartItems       CartItem[]
   coupon_usage    coupon_usage[]
@@ -38,6 +39,26 @@ model User {
   @@index([username], map: "idx_users_username")
   @@map("users")
 }
+
+model Token {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  token     String    @unique
+  type      TokenType
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tokens")
+}
+
+enum TokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
 
 model Category {
   id                 Int                   @id @default(autoincrement())
@@ -100,7 +121,7 @@ model ProductImage {
   altText    String?   @map("alt_text") @db.VarChar(255)
   sortOrder  Int?      @default(0) @map("sort_order")
   createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("product_images")
@@ -112,7 +133,7 @@ model ProductAttribute {
   attr_name  String    @db.VarChar(100)
   attr_value String    @db.VarChar(255)
   createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("product_attributes")
@@ -194,16 +215,20 @@ model PaymentTransaction {
   id                 Int                     @id @default(autoincrement())
   orderId            Int                     @map("order_id")
   amount             Decimal                 @db.Decimal(18, 8)
-  tx_hash            String                  @unique @db.VarChar(66)
+  tx_hash            String                  @unique @db.VarChar(255)
   blockNumber        BigInt?                 @map("block_number")
   gasUsed            BigInt?                 @map("gas_used")
   gas_price_gwei     Decimal?                @db.Decimal(18, 8)
-  from_address       String                  @db.VarChar(42)
-  to_address         String                  @db.VarChar(42)
+  from_address       String                  @db.VarChar(255)
+  to_address         String                  @db.VarChar(255)
   status             transaction_status_enum @default(pending)
   confirmation_count Int?                    @default(0)
+  payment_method     String?                 @default("blockchain") @db.VarChar(50)
+  gateway_response   String?                 @db.Text
+  processing_fee     Decimal?                @default(0) @db.Decimal(10, 2)
   createdAt          DateTime?               @default(now()) @map("created_at") @db.Timestamptz(6)
-  confirmed_at       DateTime?               @db.Timestamptz(6)
+  updatedAt          DateTime?               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  confirmedAt       DateTime?               @db.Timestamptz(6)
   order              Order                   @relation(fields: [orderId], references: [id], onUpdate: NoAction)
 
   @@map("payment_transactions")
@@ -254,11 +279,11 @@ model Notification {
   title              String                 @db.VarChar(255)
   message            String
   isRead             Boolean?               @default(false) @map("is_read")
-  read_at            DateTime?              @db.Timestamptz(6)
+  readAt            DateTime?              @db.Timestamptz(6)
   related_order_id   Int?
   related_product_id Int?
   createdAt          DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at         DateTime?              @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime?              @default(now()) @map("updated_at") @db.Timestamptz(6)
   orders             Order?                 @relation(fields: [related_order_id], references: [id], onUpdate: NoAction)
   products           Product?               @relation(fields: [related_product_id], references: [id], onUpdate: NoAction)
   user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -290,7 +315,7 @@ model audit_log {
   new_values Json?
   ip_address String?   @db.Inet
   user_agent String?
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
   users      User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 }
 
@@ -300,7 +325,7 @@ model coupon_usage {
   user_id         Int
   order_id        Int
   discount_amount Decimal   @db.Decimal(18, 8)
-  used_at         DateTime? @default(now()) @db.Timestamptz(6)
+  usedAt         DateTime? @default(now()) @map("used_at") @db.Timestamptz(6)
   coupons         Coupon    @relation(fields: [coupon_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   orders          Order     @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users           User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -318,8 +343,8 @@ model product_reviews {
   is_verified_purchase Boolean?           @default(false)
   status               review_status_enum @default(pending)
   helpful_count        Int?               @default(0)
-  created_at           DateTime?          @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime?          @default(now()) @db.Timestamptz(6)
+  createdAt           DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime?          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   order_items          OrderItem?         @relation(fields: [order_item_id], references: [id], onUpdate: NoAction)
   products             Product            @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users                User               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -343,8 +368,8 @@ model user_addresses {
   postcode                                         String             @db.VarChar(20)
   country                                          String             @db.VarChar(100)
   remark                                           String?
-  created_at                                       DateTime?          @default(now()) @db.Timestamptz(6)
-  updated_at                                       DateTime?          @default(now()) @db.Timestamptz(6)
+  createdAt                                       DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                       DateTime?          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   orders_orders_billing_address_idTouser_addresses Order[]            @relation("orders_billing_address_idTouser_addresses")
   orders                                           Order[]
   users                                            User               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -355,8 +380,8 @@ model user_wallets {
   user_id     Int
   wallet_addr String    @unique @db.VarChar(255)
   is_verified Boolean?  @default(false)
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  createdAt  DateTime? @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime? @default(now()) @db.Timestamptz(6)
   users       User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -364,8 +389,8 @@ model wishlist {
   id         Int       @id @default(autoincrement())
   user_id    Int
   product_id Int
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   products   Product   @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users      User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 

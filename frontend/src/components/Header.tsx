@@ -5,7 +5,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../contexts/NotificationContext';
 import { useCart } from '../contexts/CartContext';
+import { useModal } from '../contexts/ModalContext';
 import { User, UserRole } from '../types';
 
 // Helper to get user initials for the avatar

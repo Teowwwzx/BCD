@@ -6,9 +6,14 @@ import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { useModal } from '../../contexts/ModalContext';
+
 
 export default function ResetPassword() {
   const router = useRouter();
+  const { showModal } = useModal();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -19,6 +24,7 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -91,7 +97,7 @@ export default function ResetPassword() {
     setErrors({});
 
     try {
-      const response = await fetch('http://localhost:5001/api/auth/direct-reset-password', {
+      const response = await fetch(`${API_BASE_URL}/auth/direct-reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,10 +113,16 @@ export default function ResetPassword() {
 
       if (response.ok) {
         setErrors({ general: '' });
-        alert('Password reset successful! Redirecting to login...');
-        setTimeout(() => {
-          router.push('/auth');
-        }, 2000);
+        showModal({
+          title: 'Password Reset Successful',
+          message: 'Your password has been reset successfully. You can now log in with your new password.',
+          onConfirm: () => {
+            router.push('/auth');
+          }
+        });
+        // setTimeout(() => {
+        //   router.push('/auth');
+        // }, 2000);
       } else {
         setErrors({ general: data.message || 'Failed to reset password' });
       }

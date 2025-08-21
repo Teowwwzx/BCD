@@ -1,5 +1,6 @@
 // backend/prisma/seed.js
 
+require('dotenv').config();
 const { PrismaClient, Prisma } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
@@ -42,11 +43,9 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
         user_role: 'admin',
         status: 'active',
-        isEmailVerified: true,
-
         user_wallets: {
           create: {
-            wallet_addr: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+            wallet_addr: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', // Account #0
             is_verified: true,
           }
         }
@@ -64,10 +63,9 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'admin',
         status: 'active',
-        isEmailVerified: true,
         user_wallets: {
           create: {
-            wallet_addr: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+            wallet_addr: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // Account #1
             is_verified: true,
           }
         }
@@ -89,11 +87,11 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150',
         user_role: 'seller',
         status: 'active',
-        isEmailVerified: true,
 
         user_wallets: {
           create: {
-            wallet_addr: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Vitalik Buterin's address for example
+            wallet_addr: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Account #2
+
             is_verified: true,
           }
         }
@@ -111,11 +109,9 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
         user_role: 'seller',
         status: 'active',
-        isEmailVerified: true,
-
         user_wallets: {
           create: {
-            wallet_addr: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+            wallet_addr: '0x90F79bf6EB2c4f870365E785982E1f101E93b906', // Account #3
             is_verified: true,
           }
         }
@@ -133,11 +129,9 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
         user_role: 'buyer',
         status: 'active',
-        isEmailVerified: true,
-
         user_wallets: {
           create: {
-            wallet_addr: '0x976EA74026E726554dB657fA54763abd0C3a0aa9',
+            wallet_addr: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', // Account #4
             is_verified: true,
           }
         }
@@ -155,11 +149,9 @@ async function main() {
         profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         user_role: 'buyer',
         status: 'active',
-        isEmailVerified: true,
-
         user_wallets: {
           create: {
-            wallet_addr: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+            wallet_addr: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', // Account #5
             is_verified: true,
           }
         }
@@ -216,7 +208,7 @@ async function main() {
             name: p.title,
             description: p.description,
             price: p.price,
-            quantity: p.rating.count, // Using rating count as stock
+            quantity: p.rating.count,
             status: 'published',
             images: {
               create: {
@@ -239,15 +231,16 @@ async function main() {
   try {
     onchainProduct = await prisma.product.create({
       data: {
-        sellerId: regularUsers[0].id, // seller
-        categoryId: categories[0].id, // Electronics
+        sellerId: regularUsers[0].id,
+        categoryId: categories[0].id,
         name: 'Digital Art NFT - Cosmic Dreams',
         description: 'A unique digital artwork representing cosmic dreams and stellar formations. This NFT is minted on the Ethereum blockchain and represents true ownership of this digital masterpiece.',
         short_desc: 'Exclusive digital art NFT with cosmic theme',
         sku: 'NFT-COSMIC-001',
-        price: '0.5', // 0.5 ETH
-        quantity: 1, // NFTs are typically unique
+        price: '0.5',
+        quantity: 1,
         max_order_quant: 1,
+        min_order_quant: 1,
         status: 'published',
         isDigital: true,
         images: {
@@ -306,7 +299,6 @@ async function main() {
 
   // Create User Addresses
   const addresses = await Promise.all([
-    // Buyer addresses
     prisma.user_addresses.create({
       data: {
         user_id: regularUsers[2].id, // buyer
@@ -851,7 +843,7 @@ async function main() {
   console.log('   Username: seller | Wallet: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
   console.log('   Username: seller2 | Wallet: 0x90F79bf6EB2c4f870365E785982E1f101E93b906');
   console.log('   Username: buyer | Wallet: 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65');
-  console.log('   Username: buyer2 | Wallet: 0x976EA74026E726554dB657fA54763abd0C3a0aa9');
+  console.log('   Username: buyer2 | Wallet: 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc');
   console.log('   Password: 123123');
 
 }
