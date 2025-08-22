@@ -133,7 +133,7 @@ const SellerProductsPage: React.FC = () => {
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
-              {/* <option value="out_of_stock">Out of Stock</option> */}
+              <option value="out_of_stock">Out of Stock</option>
             </select>
 
             <select
@@ -172,12 +172,12 @@ const SellerProductsPage: React.FC = () => {
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{product.name}</h3>
-                {/* <span className={`px-2 py-1 text-xs rounded-full ${product.status === 'active' ? 'bg-green-100 text-green-800' :
+                <span className={`px-2 py-1 text-xs rounded-full ${product.status === 'active' ? 'bg-green-100 text-green-800' :
                     product.status === 'out_of_stock' ? 'bg-red-100 text-red-800' :
                       'bg-gray-100 text-gray-800'
                   }`}>
                   {product.status === 'out_of_stock' ? 'Out of Stock' : product.status.charAt(0).toUpperCase() + product.status.slice(1)}
-                </span> */}
+                </span>
               </div>
 
               <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">

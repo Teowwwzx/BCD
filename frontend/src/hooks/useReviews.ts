@@ -1,24 +1,5 @@
 import { useState, useEffect } from 'react';
-
-interface Review {
-  id: number;
-  product_id: number;
-  user_id: number;
-  order_item_id?: number;
-  rating: number;
-  title?: string;
-  review_text?: string;
-  is_verified_purchase?: boolean;
-  status: 'pending' | 'approved' | 'rejected';
-  helpful_count?: number;
-  created_at?: string;
-  updated_at?: string;
-  users: {
-    id: number;
-    username: string;
-    profileImageUrl?: string;
-  };
-}
+import type { Review, ReviewStatus } from '../types';
 
 interface ReviewStats {
   totalReviews: number;
@@ -45,7 +26,7 @@ interface UpdateReviewData {
   rating?: number;
   title?: string;
   review_text?: string;
-  status?: 'pending' | 'approved' | 'rejected';
+  status?: ReviewStatus;
 }
 
 interface UseReviewsReturn {
@@ -58,7 +39,7 @@ interface UseReviewsReturn {
   updateReview: (id: number, reviewData: UpdateReviewData) => Promise<Review | null>;
   deleteReview: (id: number, userId: number) => Promise<boolean>;
   getReviewStats: (productId: number) => Promise<ReviewStats | null>;
-  updateReviewStatus: (id: number, status: 'pending' | 'approved' | 'rejected') => Promise<Review | null>;
+  updateReviewStatus: (id: number, status: ReviewStatus) => Promise<Review | null>;
   getReviewById: (id: number) => Promise<Review | null>;
 }
 
@@ -181,7 +162,7 @@ export const useReviews = (): UseReviewsReturn => {
     return data;
   };
 
-  const updateReviewStatus = async (id: number, status: 'pending' | 'approved' | 'rejected'): Promise<Review | null> => {
+  const updateReviewStatus = async (id: number, status: ReviewStatus): Promise<Review | null> => {
     const data = await handleApiCall<Review>(() =>
       fetch(`${API_BASE_URL}/reviews/${id}/status`, {
         method: 'PATCH',

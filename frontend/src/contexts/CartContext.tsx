@@ -69,7 +69,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const result = await handleApiCall(`/${user.id}`, { method: 'GET' });
     if (result) {
       setCartItems(result.data.items || []);
-      setCartCount(result.data.totalItems || 0);
+      setCartCount(result.data.summary?.totalItems || 0);
     }
     setLoading(false);
   }, [user]);
@@ -82,7 +82,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // --- Public Functions ---
 
   const addToCart = async (productId: number, quantity: number, stock: number) => {
-    if (!user) return alert('Please log in to add items to your cart.');
+    if (!user) {
+      alert('Please log in to add items to your cart.');
+      throw new Error('User not logged in');
+    }
 
     // Client-side stock check for immediate feedback
     const existingItem = cartItems.find(item => item.product.id === productId);
@@ -91,7 +94,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       const errorMessage = `Cannot add item. Only ${stock} available in stock.`;
       setError(errorMessage);
       alert(errorMessage);
-      return;
+      throw new Error(errorMessage);
     }
 
     const result = await handleApiCall('/add', {
@@ -100,7 +103,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       body: JSON.stringify({ userId: user.id, productId, quantity }),
     });
 
-    if (result) await fetchCart();
+    if (result) {
+      await fetchCart();
+    } else {
+      throw new Error('Failed to add item to cart');
+    }
   };
 
   const updateCartItem = async (productId: number, newQuantity: number) => {
@@ -110,8 +117,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const itemToUpdate = cartItems.find(item => item.productId === productId);
 
     // --- LOGIC: Check stock before updating ---
-    if (itemToUpdate && newQuantity > itemToUpdate.product.stock_quantity) {
-      const errorMessage = `Cannot update quantity. Only ${itemToUpdate.product.stock_quantity} items are in stock.`;
+    if (itemToUpdate && newQuantity > itemToUpdate.product.quantity) {
+      const errorMessage = `Cannot update quantity. Only ${itemToUpdate.product.quantity} items are in stock.`;
       setError(errorMessage);
       alert(errorMessage);
       return;

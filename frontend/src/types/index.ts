@@ -89,8 +89,8 @@ export interface Product {
     description?: string | null;
     short_desc?: string | null;
     sku?: string | null;
-    price: number; // Prisma's Decimal is represented as number in JS/TS
-    stock_quantity: number;
+    price: number;
+    quantity: number;
     min_order_quant?: number | null;
     max_order_quant?: number | null;
     status: ProductStatus;
@@ -192,9 +192,9 @@ export interface CartItem {
         id: number;
         name: string;
         price: number;
-        sellerId: number; // Required for identifying the seller in marketplace transactions
+        sellerId: number;
         images?: ProductImage[];
-        stock_quantity: number;
+        quantity: number;
     };
 }
 
@@ -296,4 +296,24 @@ export interface OrderCalculation {
     discountAmount: number;
     totalAmount: number;
     processingFee?: number;
+}
+
+// =================================================================
+// PAGINATION TYPES
+// =================================================================
+
+export interface PaginationMeta {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+}
+
+export interface ProductsParams {
+    page?: number;
+    limit?: number;
+    category?: string;
+    search?: string;
+    sortBy?: string;
+    sellerId?: number;
 }

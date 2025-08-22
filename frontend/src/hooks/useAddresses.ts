@@ -71,6 +71,76 @@ export const useAddresses = () => {
         }
     };
 
+    const updateAddress = async (addressId: number, addressData: Partial<CreateAddressData>): Promise<Address | null> => {
+        if (!token) return null;
+
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch(`${API_BASE_URL}/addresses/${addressId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(addressData),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Update the address in the local state
+                setAddresses(prev => prev.map(addr => 
+                    addr.id === addressId ? result.data : addr
+                ));
+                return result.data;
+            } else {
+                throw new Error(result.error || 'Failed to update address');
+            }
+        } catch (err: any) {
+            console.error('Failed to update address', err);
+            setError(err.message);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const setDefaultAddress = async (addressId: number): Promise<boolean> => {
+        if (!token) return false;
+
+        setLoading(true);
+        setError(null);
+        try {
+            // First, set all addresses to non-default
+            const updatePromises = addresses.map(addr => 
+                fetch(`${API_BASE_URL}/addresses/${addr.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ is_default: addr.id === addressId }),
+                })
+            );
+
+            await Promise.all(updatePromises);
+            
+            // Update local state
+            setAddresses(prev => prev.map(addr => ({
+                ...addr,
+                is_default: addr.id === addressId
+            })));
+            
+            return true;
+        } catch (err: any) {
+            console.error('Failed to set default address', err);
+            setError(err.message);
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const deleteAddress = async (addressId: number): Promise<boolean> => {
         if (!token) return false;
 
@@ -105,6 +175,8 @@ export const useAddresses = () => {
         error, 
         refetchAddresses: fetchAddresses, 
         createAddress, 
+        updateAddress,
+        setDefaultAddress,
         deleteAddress 
     };
 };

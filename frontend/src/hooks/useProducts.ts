@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { getTotalListings, getListing } from '../lib/web3';
-import type { Product as DbProduct } from '../types'; // Rename for clarity
+import type { Product as DbProduct, Review, PaginationMeta, ProductsParams } from '../types'; // Rename for clarity
 
 // Use the environment variable for the API URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -11,11 +11,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/a
 // =================================================================
 // UI-LEVEL "VIEW MODEL"
 // =================================================================
-
-interface ProductReview {
-    id: number;
-    rating: number;
-}
 
 // This is the unified shape our components will use.
 // It abstracts away the difference between a DB product and a blockchain listing.
@@ -39,12 +34,12 @@ export interface DisplayProduct {
 // =================================================================
 
 // Calculate average rating from product reviews array
-const calculateAverageRating = (reviews: ProductReview[]): number => {
+const calculateAverageRating = (reviews: Review[]): number => {
     if (!reviews || reviews.length === 0) {
         return 0;
     }
     
-    const totalRating = reviews.reduce((sum: number, r: ProductReview) => sum + r.rating, 0);
+    const totalRating = reviews.reduce((sum: number, review: Review) => sum + review.rating, 0);
     const averageRating = totalRating / reviews.length;
     
     return Math.round(averageRating * 10) / 10; // e.g., 4.3
@@ -57,22 +52,44 @@ const calculateAverageRating = (reviews: ProductReview[]): number => {
 /**
  * A custom hook to fetch and manage all product data from both
  * the database (off-chain) and the blockchain (on-chain).
- * It returns a single, unified list of products for display.
+ * It returns a unified list of products for display with pagination support.
  */
-export const useProducts = () => {
+export const useProducts = (params: ProductsParams = {}) => {
     const [allProducts, setAllProducts] = useState<DisplayProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [pagination, setPagination] = useState<PaginationMeta | null>(null);
 
-    const fetchProducts = useCallback(async () => {
+    const fetchProducts = useCallback(async (fetchParams: ProductsParams = {}) => {
+        const {
+            page = 1,
+            limit = 20,
+            category,
+            search,
+            sortBy = 'createdAt-desc',
+            sellerId
+        } = { ...params, ...fetchParams };
         setLoading(true);
         setError(null);
 
         try {
             // --- 1. Fetch from Database (Off-Chain) ---
-            const dbResponse = await fetch(`${API_BASE_URL}/products`);
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString(),
+                sortBy
+            });
+            
+            if (category && category !== 'all') queryParams.append('category', category);
+            if (search) queryParams.append('search', search);
+            if (sellerId) queryParams.append('sellerId', sellerId.toString());
+            
+            const dbResponse = await fetch(`${API_BASE_URL}/products?${queryParams}`);
             if (!dbResponse.ok) throw new Error('Failed to fetch database products.');
             const dbResult = await dbResponse.json();
+            
+            // Set pagination metadata from API response
+            setPagination(dbResult.pagination);
 
             // Process database products with ratings from included reviews
             const databaseProducts: DisplayProduct[] = (dbResult.data || []).map((p: DbProduct): DisplayProduct => {
@@ -84,13 +101,13 @@ export const useProducts = () => {
                     name: p.name,
                     description: p.description || '',
                     price: Number(p.price),
-                    quantity: p.stock_quantity,
+                    quantity: p.quantity,
                     seller: p.seller.username,
-                    rating: rating, // Use the calculated rating
+                    rating: rating,
                     category: p.category?.name || 'Uncategorized',
                     image: p.images?.[0]?.imageUrl || '/placeholder.png',
-                    inStock: p.stock_quantity > 0,
-                    isBlockchain: false,
+                    inStock: p.quantity > 0, // Also update this line
+                    isBlockchain: p.isDigital,
                 };
             });
 
@@ -130,7 +147,13 @@ export const useProducts = () => {
             }
 
             // --- 3. Combine and Set Final State ---
-            setAllProducts([...databaseProducts, ...blockchainProducts]);
+            // Note: For pagination, we only show database products on paginated requests
+            // Blockchain products are only added when fetching the first page without filters
+            if (page === 1 && !search && !category && !sellerId) {
+                setAllProducts([...databaseProducts, ...blockchainProducts]);
+            } else {
+                setAllProducts(databaseProducts);
+            }
 
         } catch (err: any) {
             console.error('Error in useProducts hook:', err);
@@ -138,11 +161,18 @@ export const useProducts = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [params.page, params.limit, params.category, params.search, params.sortBy, params.sellerId]);
 
     useEffect(() => {
         fetchProducts();
     }, [fetchProducts]);
 
-    return { allProducts, loading, error, refetchProducts: fetchProducts };
+    return { 
+        allProducts, 
+        loading, 
+        error, 
+        pagination,
+        refetchProducts: fetchProducts,
+        fetchProducts: (newParams: ProductsParams) => fetchProducts(newParams)
+    };
 };

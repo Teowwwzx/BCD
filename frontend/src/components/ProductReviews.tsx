@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useReviews } from '../hooks/useReviews';
+import { ReviewStatus } from '../types';
 
 interface ProductReviewsProps {
   productId: number;
@@ -79,7 +80,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     }
   };
 
-  const handleStatusChange = async (reviewId: number, newStatus: 'pending' | 'approved' | 'rejected') => {
+  const handleStatusChange = async (reviewId: number, newStatus: ReviewStatus) => {
     if (!isAdmin) return;
     
     const updatedReview = await updateReviewStatus(reviewId, newStatus);
@@ -220,22 +221,22 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           <div className="flex-1">
             <div className="flex items-center space-x-3 mb-2">
               <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                {review.users.profileImageUrl ? (
-                  <img 
-                    src={review.users.profileImageUrl} 
-                    alt={review.users.username}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-sm font-medium text-gray-600">
-                    {review.users.username.charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div>
-                <div className="font-medium text-gray-900">{review.users.username}</div>
+                {review.user.profileImageUrl ? (
+                <img 
+                  src={review.user.profileImageUrl} 
+                  alt={review.user.username}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-medium text-gray-600">
+                  {review.user.username.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div>
+              <div className="font-medium text-gray-900">{review.user.username}</div>
                 <div className="text-sm text-gray-500">
-                  {new Date(review.created_at).toLocaleDateString()}
+                  {new Date(review.createdAt).toLocaleDateString()}
                 </div>
               </div>
               {review.is_verified_purchase && (
@@ -277,12 +278,12 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
             <div className="ml-4 space-x-2">
               <select
                 value={review.status}
-                onChange={(e) => handleStatusChange(review.id, e.target.value as any)}
+                onChange={(e) => handleStatusChange(review.id, e.target.value as ReviewStatus)}
                 className="text-sm border border-gray-300 rounded px-2 py-1"
               >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
+                <option value={ReviewStatus.Pending}>Pending</option>
+                <option value={ReviewStatus.Approved}>Approved</option>
+                <option value={ReviewStatus.Rejected}>Rejected</option>
               </select>
             </div>
           )}

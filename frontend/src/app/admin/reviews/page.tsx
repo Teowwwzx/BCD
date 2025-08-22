@@ -37,7 +37,7 @@ const AdminReviewsPage: React.FC<AdminReviewsPageProps> = () => {
     const matchesSearch = searchTerm === '' ||
       review.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       review.review_text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.users.username.toLowerCase().includes(searchTerm.toLowerCase());
+      review.user.username.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesProduct = selectedProduct === '' ||
       review.product_id.toString() === selectedProduct;
@@ -80,22 +80,22 @@ const AdminReviewsPage: React.FC<AdminReviewsPageProps> = () => {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-              {review.users.profileImageUrl ? (
-                <img
-                  src={review.users.profileImageUrl}
-                  alt={review.users.username}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-sm font-medium text-gray-600">
-                  {review.users.username.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-            <div>
-              <div className="font-medium text-gray-900">{review.users.username}</div>
+              {review.user.profileImageUrl ? (
+              <img
+                src={review.user.profileImageUrl}
+                alt={review.user.username}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <span className="text-sm font-medium text-gray-600">
+                {review.user.username.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="font-medium text-gray-900">{review.user.username}</div>
               <div className="text-sm text-gray-500">
-                Product ID: {review.product_id} • {new Date(review.created_at).toLocaleDateString()}
+                Product ID: {review.product_id} • {new Date(review.createdAt).toLocaleDateString()}
               </div>
             </div>
           </div>

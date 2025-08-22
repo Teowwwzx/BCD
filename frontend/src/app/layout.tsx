@@ -6,6 +6,8 @@ import { AuthProvider } from "../contexts/AuthContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { CartProvider } from "../contexts/CartContext";
 import { NotificationProvider } from "../contexts/NotificationContext";
+import { ToastProvider } from "../contexts/ToastContext";
+import ToastContainer from "../components/ToastContainer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,15 +35,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors`}
       >
-        {/* --- 2. Nest Providers Logically --- */}
-        {/* ThemeProvider is outermost for global styling. */}
-        {/* AuthProvider is next, as Cart and Notifications depend on the user. */}
         <ThemeProvider>
           <AuthProvider>
             <CartProvider>
-              {/* <NotificationProvider> */}
-                {children}
-              {/* </NotificationProvider> */}
+              <NotificationProvider>
+                <ToastProvider>
+                  {children}
+                  <ToastContainer />
+                </ToastProvider>
+              </NotificationProvider>
             </CartProvider>
           </AuthProvider>
         </ThemeProvider>

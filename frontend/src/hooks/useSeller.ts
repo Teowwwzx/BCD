@@ -152,11 +152,11 @@ export const useSeller = (): UseSellerReturn => {
         description: product.description,
         price: `${Number(product.price)} ETH`,
         category: product.category?.name || 'Uncategorized',
-        stock: product.quantity ?? product.stock_quantity ?? 0,
+        stock: product.quantity ?? 0,
         status: product.quantity > 0 && product.status === 'published' ? 'active' : (product.quantity === 0 ? 'out_of_stock' : 'inactive'),
         sales: 0,
         revenue: '0 ETH',
-        dateAdded: product.createdAt || product.created_at || new Date().toISOString()
+        dateAdded: product.createdAt || new Date().toISOString()
       }));
       
       productsCache = transformedProducts;
@@ -199,7 +199,7 @@ export const useSeller = (): UseSellerReturn => {
       const transformedSales: Sale[] = [];
       for (const order of orders) {
         const buyerName = order.users?.username || 'Unknown Buyer';
-        const createdDate = order.createdAt || order.created_at || new Date().toISOString();
+        const createdDate = order.createdAt || new Date().toISOString();
         const orderStatus = order.order_status || order.status;
         const paymentStatus = order.payment_status;
         const mappedStatus: Sale['status'] = orderStatus === 'refunded'

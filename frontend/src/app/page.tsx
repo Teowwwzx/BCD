@@ -4,10 +4,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-// --- Core Principles In Action ---
-// 1. Import order: React/Next -> Hooks -> Components -> Types
 import { useAuth } from '../hooks/useAuth';
-import { useProducts, DisplayProduct } from '../hooks/useProducts';
+import { useProducts } from '../hooks/useProducts';
 import { useCart } from '../contexts/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -31,6 +29,8 @@ export default function Home() {
   useEffect(() => {
     if (!authIsLoading && isLoggedIn && user?.user_role === 'admin') {
       router.push('/admin');
+    } else if (!authIsLoading && isLoggedIn && user?.user_role === 'seller') {
+      router.push('/seller');
     }
   }, [authIsLoading, isLoggedIn, user?.user_role, router]);
 

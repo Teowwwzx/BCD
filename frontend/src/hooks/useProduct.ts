@@ -53,7 +53,7 @@ export const useProduct = (id: string | null) => {
                     const fetchedProduct: Product = {
                         ...result.data,
                         price: Number(result.data.price),
-                        stock_quantity: result.data.quantity || result.data.stock_quantity || 0
+                        quantity: result.data.quantity || 0
                     };
                     setProduct(fetchedProduct);
                 } else {
@@ -78,7 +78,7 @@ export const useProduct = (id: string | null) => {
                             short_desc: null,
                             sku: null,
                             price: parseFloat(ethers.formatEther(listing.price)),
-                            stock_quantity: Number(listing.quantity),
+                            quantity: Number(listing.quantity),
                             min_order_quant: null,
                             max_order_quant: null,
                             status: 'published' as any,
