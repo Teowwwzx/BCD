@@ -74,9 +74,9 @@ router.post('/', async (req, res) => {
 
     // Validate required fields
     if (!buyerId || !shippingAddressId || !billingAddressId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields: buyerId, shippingAddressId, billingAddressId' 
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: buyerId, shippingAddressId, billingAddressId'
       });
     }
 
@@ -103,31 +103,31 @@ router.post('/', async (req, res) => {
 
     // Validate that shipping address exists and belongs to the buyer
     const shippingAddress = await prisma.user_addresses.findFirst({
-      where: { 
+      where: {
         id: shippingAddressIdInt,
         user_id: buyerIdInt,
         address_type: 'shipping'
       }
     });
     if (!shippingAddress) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid shipping address or address does not belong to buyer.' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid shipping address or address does not belong to buyer.'
       });
     }
 
     // Validate that billing address exists and belongs to the buyer
     const billingAddress = await prisma.user_addresses.findFirst({
-      where: { 
+      where: {
         id: billingAddressIdInt,
         user_id: buyerIdInt,
         address_type: 'billing'
       }
     });
     if (!billingAddress) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid billing address or address does not belong to buyer.' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid billing address or address does not belong to buyer.'
       });
     }
 
@@ -299,8 +299,8 @@ router.post('/checkout', async (req, res) => {
     }, 0);
 
     // Calculate shipping cost (simplified - using base rate + per kg rate)
-    const shippingCost = parseFloat(shippingMethod.baseRate) + 
-                        (parseFloat(shippingMethod.perKgRate || 0) * totalWeight);
+    const shippingCost = parseFloat(shippingMethod.baseRate) +
+      (parseFloat(shippingMethod.perKgRate || 0) * totalWeight);
 
     // Apply coupon if provided
     let discountAmount = 0;
@@ -310,8 +310,8 @@ router.post('/checkout', async (req, res) => {
         where: { code: couponCode }
       });
 
-      if (coupon && coupon.status === 'active' && 
-          (!coupon.minimum_order_amount || subtotal >= parseFloat(coupon.minimum_order_amount))) {
+      if (coupon && coupon.status === 'active' &&
+        (!coupon.minimum_order_amount || subtotal >= parseFloat(coupon.minimum_order_amount))) {
         if (coupon.discount_type === 'percentage') {
           discountAmount = (subtotal * parseFloat(coupon.discount_value)) / 100;
         } else {
@@ -400,84 +400,84 @@ router.post('/checkout', async (req, res) => {
       }
 
       // 5. Process payment based on method
-       let paymentResult = null;
-       if (paymentMethod === 'gateway') {
-         // Simulate gateway payment processing
-         const gatewayResponse = {
-           success: true,
-           transactionId: `gw_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-           gatewayStatus: 'succeeded',
-           processingFee: (totalAmount * 0.029 + 0.30).toFixed(2)
-         };
+      let paymentResult = null;
+      if (paymentMethod === 'gateway') {
+        // Simulate gateway payment processing
+        const gatewayResponse = {
+          success: true,
+          transactionId: `gw_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          gatewayStatus: 'succeeded',
+          processingFee: (totalAmount * 0.029 + 0.30).toFixed(2)
+        };
 
-         paymentResult = await tx.paymentTransaction.create({
-           data: {
-             orderId: order.id,
-             amount: totalAmount.toString(),
-             tx_hash: gatewayResponse.transactionId,
-             from_address: customerEmail || order.users.email,
-             to_address: 'gateway_merchant_account',
-             status: gatewayResponse.success ? 'confirmed' : 'failed',
-             payment_method: 'gateway',
-             gateway_response: JSON.stringify(gatewayResponse),
-             processing_fee: gatewayResponse.processingFee
-           }
-         });
+        paymentResult = await tx.paymentTransaction.create({
+          data: {
+            orderId: order.id,
+            amount: totalAmount.toString(),
+            tx_hash: gatewayResponse.transactionId,
+            from_address: customerEmail || order.users.email,
+            to_address: 'gateway_merchant_account',
+            status: gatewayResponse.success ? 'confirmed' : 'failed',
+            payment_method: 'gateway',
+            gateway_response: JSON.stringify(gatewayResponse),
+            processing_fee: gatewayResponse.processingFee
+          }
+        });
 
-         // Update order payment status
-         await tx.order.update({
-           where: { id: order.id },
-           data: { payment_status: gatewayResponse.success ? 'paid' : 'failed' }
-         });
-       } else if (paymentMethod === 'wallet') {
-         // Handle wallet-to-wallet payment
-         const { fromUserId, toUserId } = req.body;
+        // Update order payment status
+        await tx.order.update({
+          where: { id: order.id },
+          data: { payment_status: gatewayResponse.success ? 'paid' : 'failed' }
+        });
+      } else if (paymentMethod === 'wallet') {
+        // Handle wallet-to-wallet payment
+        const { fromUserId, toUserId } = req.body;
 
-         if (!fromUserId || !toUserId) {
-           throw new Error('fromUserId and toUserId are required for wallet payments.');
-         }
+        if (!fromUserId || !toUserId) {
+          throw new Error('fromUserId and toUserId are required for wallet payments.');
+        }
 
-         // Get wallet addresses for both users
-         const [fromWallet, toWallet] = await Promise.all([
-           tx.user_wallets.findUnique({ where: { user_id: parseInt(fromUserId) } }),
-           tx.user_wallets.findUnique({ where: { user_id: parseInt(toUserId) } })
-         ]);
+        // Get wallet addresses for both users
+        const [fromWallet, toWallet] = await Promise.all([
+          tx.user_wallets.findUnique({ where: { user_id: parseInt(fromUserId) } }),
+          tx.user_wallets.findUnique({ where: { user_id: parseInt(toUserId) } })
+        ]);
 
-         if (!fromWallet || !toWallet) {
-           throw new Error('Wallet not found for one or both users.');
-         }
+        if (!fromWallet || !toWallet) {
+          throw new Error('Wallet not found for one or both users.');
+        }
 
-         // Simulate wallet transfer
-         const walletTransfer = {
-           success: true,
-           transactionHash: `0x${Math.random().toString(16).substr(2, 64)}`,
-           blockNumber: Math.floor(Math.random() * 1000000) + 15000000,
-           gasUsed: Math.floor(Math.random() * 50000) + 21000,
-           gasPriceGwei: (Math.random() * 50 + 10).toFixed(2)
-         };
+        // Simulate wallet transfer
+        const walletTransfer = {
+          success: true,
+          transactionHash: `0x${Math.random().toString(16).substr(2, 64)}`,
+          blockNumber: Math.floor(Math.random() * 1000000) + 15000000,
+          gasUsed: Math.floor(Math.random() * 50000) + 21000,
+          gasPriceGwei: (Math.random() * 50 + 10).toFixed(2)
+        };
 
-         paymentResult = await tx.paymentTransaction.create({
-           data: {
-             orderId: order.id,
-             amount: totalAmount.toString(),
-             tx_hash: walletTransfer.transactionHash,
-             blockNumber: walletTransfer.blockNumber,
-             gasUsed: walletTransfer.gasUsed,
-             gas_price_gwei: walletTransfer.gasPriceGwei,
-             from_address: fromWallet.wallet_addr,
-             to_address: toWallet.wallet_addr,
-             status: walletTransfer.success ? 'confirmed' : 'failed',
-             payment_method: 'wallet',
-             processing_fee: '0.00'
-           }
-         });
+        paymentResult = await tx.paymentTransaction.create({
+          data: {
+            orderId: order.id,
+            amount: totalAmount.toString(),
+            tx_hash: walletTransfer.transactionHash,
+            blockNumber: walletTransfer.blockNumber,
+            gasUsed: walletTransfer.gasUsed,
+            gas_price_gwei: walletTransfer.gasPriceGwei,
+            from_address: fromWallet.wallet_addr,
+            to_address: toWallet.wallet_addr,
+            status: walletTransfer.success ? 'confirmed' : 'failed',
+            payment_method: 'wallet',
+            processing_fee: '0.00'
+          }
+        });
 
-         // Update order payment status
-         await tx.order.update({
-           where: { id: order.id },
-           data: { payment_status: walletTransfer.success ? 'paid' : 'failed' }
-         });
-       }
+        // Update order payment status
+        await tx.order.update({
+          where: { id: order.id },
+          data: { payment_status: walletTransfer.success ? 'paid' : 'failed' }
+        });
+      }
 
       // 6. Update product stock
       for (const item of cartItems) {
@@ -539,9 +539,9 @@ router.get('/', async (req, res) => {
     if (order_status) {
       const validOrderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
       if (!validOrderStatuses.includes(order_status)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: `Invalid order_status. Valid values: ${validOrderStatuses.join(', ')}` 
+        return res.status(400).json({
+          success: false,
+          error: `Invalid order_status. Valid values: ${validOrderStatuses.join(', ')}`
         });
       }
       whereClause.order_status = order_status;
@@ -549,9 +549,9 @@ router.get('/', async (req, res) => {
     if (payment_status) {
       const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded', 'partially_refunded'];
       if (!validPaymentStatuses.includes(payment_status)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: `Invalid payment_status. Valid values: ${validPaymentStatuses.join(', ')}` 
+        return res.status(400).json({
+          success: false,
+          error: `Invalid payment_status. Valid values: ${validPaymentStatuses.join(', ')}`
         });
       }
       whereClause.payment_status = payment_status;
@@ -664,9 +664,9 @@ router.put('/:id', async (req, res) => {
     if (order_status) {
       const validOrderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
       if (!validOrderStatuses.includes(order_status)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: `Invalid order_status. Valid values: ${validOrderStatuses.join(', ')}` 
+        return res.status(400).json({
+          success: false,
+          error: `Invalid order_status. Valid values: ${validOrderStatuses.join(', ')}`
         });
       }
     }
@@ -675,9 +675,9 @@ router.put('/:id', async (req, res) => {
     if (payment_status) {
       const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded', 'partially_refunded'];
       if (!validPaymentStatuses.includes(payment_status)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: `Invalid payment_status. Valid values: ${validPaymentStatuses.join(', ')}` 
+        return res.status(400).json({
+          success: false,
+          error: `Invalid payment_status. Valid values: ${validPaymentStatuses.join(', ')}`
         });
       }
     }
@@ -742,9 +742,9 @@ router.delete('/:id', async (req, res) => {
 
     // For safety, only allow deletion of orders that are already cancelled
     if (existingOrder.order_status !== 'cancelled') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Only cancelled orders can be deleted. Please cancel the order first.' 
+      return res.status(400).json({
+        success: false,
+        error: 'Only cancelled orders can be deleted. Please cancel the order first.'
       });
     }
 
@@ -754,7 +754,7 @@ router.delete('/:id', async (req, res) => {
       await tx.orderItem.deleteMany({
         where: { orderId: orderId }
       });
-      
+
       // Then delete the order
       await tx.order.delete({
         where: { id: orderId }
@@ -768,6 +768,74 @@ router.delete('/:id', async (req, res) => {
     }
     console.error('Error deleting order:', error);
     res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+router.post('/:id/refund', async (req, res) => {
+  // Note: In a real app, you must add admin authentication middleware here.
+
+  const orderId = parseInt(req.params.id);
+  if (isNaN(orderId)) {
+    return res.status(400).json({ success: false, error: 'Invalid Order ID.' });
+  }
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { users: { include: { user_wallets: true } } }
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found.' });
+    }
+
+    if (order.order_status === 'refunded') {
+      return res.status(400).json({ success: false, error: 'Order has already been refunded.' });
+    }
+
+    const buyerWalletAddress = order.users.user_wallets[0]?.wallet_addr;
+    if (!buyerWalletAddress) {
+      return res.status(400).json({ success: false, error: 'Buyer wallet address not found.' });
+    }
+
+    // --- Blockchain Interaction ---
+    // 1. Setup provider and admin wallet
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || 'http://127.0.0.1:8545');
+    const adminWallet = new ethers.Wallet(process.env.ADMIN_WALLET_PRIVATE_KEY, provider);
+
+    // 2. Connect to the contract
+    const contract = new ethers.Contract(
+      process.env.CONTRACT_ADDRESS, // Your deployed contract address
+      marketplaceArtifact.abi,
+      adminWallet
+    );
+
+    // 3. Call the smart contract's refund function
+    const tx = await contract.processRefund(orderId, buyerWalletAddress, order.totalAmount);
+    const receipt = await tx.wait();
+
+    // --- Database Update ---
+    // Use a transaction to ensure both statuses are updated together
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        order_status: 'refunded',
+        payment_status: 'refunded'
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Refund processed successfully.',
+        txHash: receipt.hash,
+        updatedOrder: updatedOrder
+      }
+    });
+
+  } catch (error) {
+    console.error('Refund processing error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error during refund.' });
   }
 });
 

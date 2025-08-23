@@ -201,7 +201,7 @@ router.put('/:notificationId/read', async (req, res) => {
             where: { id: notificationId },
             data: { 
                 isRead: true,
-                read_at: new Date()
+                readAt: new Date()
             }
         });
 

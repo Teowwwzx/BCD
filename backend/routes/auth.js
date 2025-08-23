@@ -257,8 +257,8 @@ router.get('/profile', authMiddleware.isLoggedIn, async (req, res) => {
                     phone: user.phone,
                     user_role: user.user_role,
                     status: user.status,
-                    created_at: user.created_at,
-                    updated_at: user.updated_at
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt
                 }
             }
         });

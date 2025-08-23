@@ -207,7 +207,7 @@ router.get('/', async (req, res) => {
           } 
         }
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: limitInt,
       skip: offsetInt
     });

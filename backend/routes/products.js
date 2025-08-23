@@ -155,7 +155,9 @@ router.get('/', async (req, res) => {
                         select: { name: true }
                     },
                     product_reviews: {
-                        select: { rating: true }
+                    include: {
+                        users: { select: { id: true, username: true, profileImageUrl: true } }
+                        }
                     }
                 },
             }),

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "BCD Marketplace - Auth API",
-    "description": "Postman collection for testing the Authentication API endpoints",
+    "description": "Postman collection for testing the Authentication API endpoints, updated for token-based verification and password reset.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,280 +14,306 @@
       "key": "authToken",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "emailVerificationToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "passwordResetToken",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
     {
-      "name": "Register User",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"testuser123\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"f_name\": \"John\",\n  \"l_name\": \"Doe\",\n  \"phone\": \"+1234567890\",\n  \"user_role\": \"buyer\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/register",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "register"]
-        },
-        "description": "Register a new user account"
-      },
-      "response": []
-    },
-    {
-      "name": "Register Admin User",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"admin123\",\n  \"email\": \"admin@bcdmarketplace.com\",\n  \"password\": \"adminpassword123\",\n  \"f_name\": \"Admin\",\n  \"l_name\": \"User\",\n  \"phone\": \"+1111111111\",\n  \"user_role\": \"admin\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/register",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "register"]
-        },
-        "description": "Register an admin user account"
-      },
-      "response": []
-    },
-    {
-      "name": "Register Seller User",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"seller123\",\n  \"email\": \"seller@example.com\",\n  \"password\": \"sellerpassword123\",\n  \"f_name\": \"Seller\",\n  \"l_name\": \"User\",\n  \"phone\": \"+2222222222\",\n  \"user_role\": \"seller\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/register",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "register"]
-        },
-        "description": "Register a seller user account"
-      },
-      "response": []
-    },
-    {
-      "name": "Login User",
-      "event": [
+      "name": "User Registration",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.response.code === 200) {",
-              "    const responseJson = pm.response.json();",
-              "    if (responseJson.success && responseJson.data.token) {",
-              "        pm.collectionVariables.set('authToken', responseJson.data.token);",
-              "        console.log('Auth token saved:', responseJson.data.token);",
-              "    }",
-              "}"
+          "name": "Register New Buyer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// NOTE: To get the verification token, you must check the database or the console log of the server.",
+                  "// This collection does not automatically capture it.",
+                  "pm.test(\"Registration successful\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
-            "type": "text/javascript"
-          }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"buyer-test-user\",\n  \"email\": \"buyer-test@example.com\",\n  \"password\": \"password123\",\n  \"f_name\": \"Test\",\n  \"l_name\": \"Buyer\",\n  \"phone\": \"+1234567890\",\n  \"user_role\": \"buyer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user account. The verification token will be logged in the backend console. You need to manually copy it to the `emailVerificationToken` variable to test the `/verify-email` endpoint."
+          },
+          "response": []
         }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/login",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "login"]
-        },
-        "description": "Login with email and password (automatically saves token)"
-      },
-      "response": []
+      ]
     },
     {
-      "name": "Login Admin User",
-      "event": [
+      "name": "Email Verification",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.response.code === 200) {",
-              "    const responseJson = pm.response.json();",
-              "    if (responseJson.success && responseJson.data.token) {",
-              "        pm.collectionVariables.set('authToken', responseJson.data.token);",
-              "        console.log('Admin auth token saved:', responseJson.data.token);",
-              "    }",
-              "}"
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "type": "string",
+                "value": "application/json"
+              }
             ],
-            "type": "text/javascript"
-          }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{emailVerificationToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-email"]
+            },
+            "description": "Verify a user's email using the token received after registration."
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Verification Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "type": "string",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"buyer-test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/resend-verification",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "resend-verification"]
+            },
+            "description": "Resend the verification email if the user hasn't received it or the token has expired."
+          },
+          "response": []
         }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"admin@bcdmarketplace.com\",\n  \"password\": \"adminpassword123\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/login",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "login"]
-        },
-        "description": "Login as admin user (automatically saves token)"
-      },
-      "response": []
+      ]
     },
     {
-      "name": "Get User Profile",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{authToken}}",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/profile",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "profile"]
+      "name": "Login & Profile",
+      "item": [
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.data.token) {",
+                  "        pm.collectionVariables.set('authToken', responseJson.data.token);",
+                  "        console.log('Auth token saved:', responseJson.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer-test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login with email and password (automatically saves token). This will fail if the email is not yet verified."
+          },
+          "response": []
         },
-        "description": "Get current user profile (requires authentication)"
-      },
-      "response": []
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "profile"]
+            },
+            "description": "Get current user profile (requires authentication)"
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Test Invalid Credentials",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"invalid@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+      "name": "Password Reset",
+      "item": [
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "type": "string",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"buyer-test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "forgot-password"]
+            },
+            "description": "Request a password reset link. The token will be logged in the backend console. You need to manually copy it to the `passwordResetToken` variable."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/login",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "login"]
-        },
-        "description": "Test login with invalid credentials (should fail)"
-      },
-      "response": []
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "type": "string",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{passwordResetToken}}\",\n    \"newPassword\": \"newSecurePassword123\",\n    \"confirmPassword\": \"newSecurePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "reset-password"]
+            },
+            "description": "Reset the user's password using the token from the 'Forgot Password' step."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Test Missing Fields Registration",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"incomplete\",\n  \"email\": \"incomplete@example.com\"\n}"
+      "name": "Negative Tests",
+      "item": [
+        {
+          "name": "Login with Unverified Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer-test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Test login before the user's email has been verified. Should return a 403 error."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/register",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "register"]
+        {
+          "name": "Test Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalid@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Test login with invalid credentials (should fail)"
+          },
+          "response": []
         },
-        "description": "Test registration with missing required fields (should fail)"
-      },
-      "response": []
-    },
-    {
-      "name": "Test Duplicate Email Registration",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"duplicate123\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"f_name\": \"Duplicate\",\n  \"l_name\": \"User\",\n  \"user_role\": \"buyer\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/register",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "register"]
-        },
-        "description": "Test registration with duplicate email (should fail if email already exists)"
-      },
-      "response": []
-    },
-    {
-      "name": "Test Profile Without Token",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/profile",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "profile"]
-        },
-        "description": "Test profile access without authentication token (should fail)"
-      },
-      "response": []
-    },
-    {
-      "name": "Test Profile With Invalid Token",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer invalid_token_here",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/profile",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "profile"]
-        },
-        "description": "Test profile access with invalid token (should fail)"
-      },
-      "response": []
+        {
+          "name": "Test Duplicate Email Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"duplicate123\",\n  \"email\": \"buyer-test@example.com\",\n  \"password\": \"password123\",\n  \"f_name\": \"Duplicate\",\n  \"l_name\": \"User\",\n  \"user_role\": \"buyer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Test registration with duplicate email (should fail if email already exists)"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

@@ -378,16 +378,16 @@ router.post('/calculate', async (req, res) => {
         }
 
         // Calculate shipping cost
-        let totalCost = parseFloat(shippingMethod.base_rate);
+        let totalCost = parseFloat(shippingMethod.baseRate);
 
         // Add weight-based cost
-        if (shippingMethod.per_kg_rate && totalWeight > 0) {
-            totalCost += parseFloat(shippingMethod.per_kg_rate) * parseFloat(totalWeight);
+        if (shippingMethod.perKgRate && totalWeight > 0) {
+            totalCost += parseFloat(shippingMethod.perKgRate) * parseFloat(totalWeight);
         }
 
         // Add distance-based cost
-        if (shippingMethod.per_km_rate && distance > 0) {
-            totalCost += parseFloat(shippingMethod.per_km_rate) * parseFloat(distance);
+        if (shippingMethod.perKmRate && distance > 0) {
+            totalCost += parseFloat(shippingMethod.perKmRate) * parseFloat(distance);
         }
 
         // Round to 2 decimal places
@@ -404,9 +404,9 @@ router.post('/calculate', async (req, res) => {
                     max_delivery_days: shippingMethod.maxDeliveryDays
                 },
                 calculation: {
-                    base_rate: parseFloat(shippingMethod.base_rate),
-                    weight_cost: shippingMethod.per_kg_rate ? parseFloat(shippingMethod.per_kg_rate) * parseFloat(totalWeight) : 0,
-                    distance_cost: shippingMethod.per_km_rate ? parseFloat(shippingMethod.per_km_rate) * parseFloat(distance) : 0,
+                    base_rate: parseFloat(shippingMethod.baseRate),
+                    weight_cost: shippingMethod.perKgRate ? parseFloat(shippingMethod.perKgRate) * parseFloat(totalWeight) : 0,
+                    distance_cost: shippingMethod.perKmRate ? parseFloat(shippingMethod.perKmRate) * parseFloat(distance) : 0,
                     total_cost: totalCost,
                     total_weight: parseFloat(totalWeight),
                     distance: parseFloat(distance)

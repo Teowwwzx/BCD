@@ -15,7 +15,7 @@ interface ShippingCostCalculation {
   destinationPostcode?: string;
 }
 
-interface ShippingCostResult {
+export interface ShippingCostResult {
   methodId: number;
   methodName: string;
   baseCost: number;
@@ -124,12 +124,30 @@ export const useShippingMethods = () => {
       const calculations = await Promise.all(
         methods.map(async (method) => {
           try {
+            console.log(`🔧 Calculating cost for method ${method.id} with params:`, {
+              shippingMethodId: method.id,
+              totalWeight: params.weight,
+              distance: params.distance,
+              destinationPostcode: params.destinationPostcode
+            });
+            
             const response = await makeApiCall('/shipping-methods/calculate', {
               method: 'POST',
               body: JSON.stringify({
                 shippingMethodId: method.id,
-                ...params
+                totalWeight: params.weight,
+                distance: params.distance,
+                destinationPostcode: params.destinationPostcode
               }),
+            });
+            
+            console.log(`✅ Shipping calculation successful for ${method.name}:`, {
+              totalCost: response.data.calculation.total_cost,
+              breakdown: {
+                base: response.data.calculation.base_rate,
+                weight: response.data.calculation.weight_cost,
+                distance: response.data.calculation.distance_cost
+              }
             });
             
             return {
@@ -143,6 +161,7 @@ export const useShippingMethods = () => {
             };
           } catch (error) {
             console.warn(`Failed to calculate cost for method ${method.id}:`, error);
+            console.warn(`Using fallback cost calculation for method ${method.id}:`, method);
             return {
               methodId: method.id,
               methodName: method.name,

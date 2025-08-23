@@ -190,11 +190,11 @@ export default function CheckoutPage() {
     }
   }, [authIsLoading, isLoggedIn, router]);
 
-  useEffect(() => {
-    if (!authIsLoading && cartItems.length === 0) {
-      router.push('/products');
-    }
-  }, [authIsLoading, cartItems.length, router]);
+  // useEffect(() => {
+  //   if (!authIsLoading && cartItems.length === 0) {
+  //     router.push('/products');
+  //   }
+  // }, [authIsLoading, cartItems.length, router]);
 
   // 4. Performance Hooks
   const selectedAddress = useMemo(() => {
@@ -400,7 +400,7 @@ export default function CheckoutPage() {
     switch (currentStep) {
       case CheckoutStep.SHIPPING:
         return (
-          <div className="space-y-8">
+          <div className="space-y-8 text-black">
             {/* Shipping Address Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h2 className="text-xl font-semibold mb-4">Shipping Address</h2>
@@ -415,7 +415,7 @@ export default function CheckoutPage() {
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                       selectedAddressId === address.id
                         ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-500 hover:border-gray-300'
                     }`}
                   >
                     <div className="flex justify-between items-start">

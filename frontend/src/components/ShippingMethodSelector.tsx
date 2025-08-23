@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useShippingMethods } from '../hooks/useShippingMethods';
+import { useShippingMethods, ShippingCostResult } from '../hooks/useShippingMethods';
 import { ShippingMethod } from '../types';
 
 interface ShippingMethodSelectorProps {
@@ -14,14 +14,7 @@ interface ShippingMethodSelectorProps {
   className?: string;
 }
 
-interface ShippingOptionWithCost {
-  method: ShippingMethod;
-  baseCost: number;
-  weightCost: number;
-  distanceCost: number;
-  totalCost: number;
-  estimatedDays: string;
-}
+
 
 export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
   selectedMethodId,
@@ -33,7 +26,7 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
   className = '',
 }) => {
   // 1. State Hooks
-  const [shippingOptions, setShippingOptions] = useState<ShippingOptionWithCost[]>([]);
+  const [shippingOptions, setShippingOptions] = useState<ShippingCostResult[]>([]);
   const [hoveredMethodId, setHoveredMethodId] = useState<number | null>(null);
 
   // 2. Context Hooks
@@ -55,6 +48,10 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
     const calculateCosts = async () => {
       if (shippingMethods.length === 0) return;
       
+      console.log('🚚 Starting shipping cost calculation');
+      console.log('📦 Input params:', { weight, distance, destinationPostcode });
+      console.log('🏪 Available shipping methods:', shippingMethods);
+      
       try {
         const calculations = await calculateAllShippingCosts({
           weight,
@@ -62,32 +59,27 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
           destinationPostcode,
         });
         
-        const optionsWithCosts: ShippingOptionWithCost[] = calculations.map(calc => {
-          const method = shippingMethods.find(m => m.id === calc.methodId);
-          if (!method) throw new Error(`Shipping method ${calc.methodId} not found`);
-          
-          return {
-            method,
-            baseCost: calc.baseCost,
-            weightCost: calc.weightCost,
-            distanceCost: calc.distanceCost,
-            totalCost: calc.totalCost,
-            estimatedDays: calc.estimatedDays,
-          };
-        });
+        console.log('💰 Raw calculations from API:', calculations);
         
-        setShippingOptions(optionsWithCosts);
+        // Use the calculations directly since they already have the correct structure
+        setShippingOptions(calculations);
+        
+        console.log('✅ Final shipping options set:', calculations);
+
       } catch (error) {
-        console.error('Failed to calculate shipping costs:', error);
+        console.error('❌ Failed to calculate shipping costs:', error);
       }
     };
     
     calculateCosts();
   }, [shippingMethods, weight, distance, destinationPostcode, calculateAllShippingCosts]);
 
-  // 4. Performance Hooks
+  // Performance Hooks
   const sortedShippingOptions = useMemo(() => {
-    return [...shippingOptions].sort((a, b) => a.totalCost - b.totalCost);
+    console.log('🔄 Sorting shipping options:', shippingOptions);
+    const sorted = shippingOptions.sort((a, b) => a.totalCost - b.totalCost);
+    console.log('📊 Sorted shipping options:', sorted);
+    return sorted;
   }, [shippingOptions]);
 
   const handleMethodSelect = useCallback((methodId: number, cost: number) => {
@@ -105,10 +97,13 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
   }, []);
 
   const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    console.log('💰 formatCurrency called with amount:', amount, 'type:', typeof amount);
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
+    console.log('💰 formatCurrency returning:', formatted);
+    return formatted;
   }, []);
 
   const getShippingIcon = useCallback((methodName: string) => {
@@ -179,14 +174,17 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
       ) : (
         <div className="space-y-3">
           {sortedShippingOptions.map((option) => {
-            const isSelected = selectedMethodId === option.method.id;
-            const isHovered = hoveredMethodId === option.method.id;
+            const method = shippingMethods.find(m => m.id === option.methodId);
+            if (!method) return null;
+            
+            const isSelected = selectedMethodId === option.methodId;
+            const isHovered = hoveredMethodId === option.methodId;
             const isCheapest = option.totalCost === Math.min(...sortedShippingOptions.map(o => o.totalCost));
             const isFastest = option.estimatedDays === Math.min(...sortedShippingOptions.map(o => parseInt(o.estimatedDays.split('-')[0]))).toString() + (option.estimatedDays.includes('-') ? '-' + Math.min(...sortedShippingOptions.map(o => parseInt(o.estimatedDays.split('-')[1] || o.estimatedDays.split('-')[0]))) : '') + ' days';
             
             return (
               <div
-                key={option.method.id}
+                key={option.methodId}
                 className={`
                   shipping-option relative cursor-pointer rounded-lg border-2 p-4 transition-all duration-200
                   ${
@@ -202,8 +200,8 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
                       : 'hover:shadow-sm'
                   }
                 `}
-                onClick={() => handleMethodSelect(option.method.id, option.totalCost)}
-                onMouseEnter={() => handleMouseEnter(option.method.id)}
+                onClick={() => handleMethodSelect(option.methodId, option.totalCost)}
+                onMouseEnter={() => handleMouseEnter(option.methodId)}
                 onMouseLeave={handleMouseLeave}
               >
                 {/* Badges */}
@@ -244,27 +242,27 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
                 <div className="flex items-start justify-between pr-8">
                   <div className="flex items-start space-x-3">
                     <div className="text-2xl">
-                      {getShippingIcon(option.method.name)}
+                      {getShippingIcon(option.methodName)}
                     </div>
                     
                     <div className="flex-1">
                       <h4 className="text-lg font-medium text-gray-900">
-                        {option.method.name}
+                        {option.methodName}
                       </h4>
                       
-                      {option.method.description && (
+                      {method.description && (
                         <p className="mt-1 text-sm text-gray-600">
-                          {option.method.description}
+                          {method.description}
                         </p>
                       )}
                       
                       <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <span>📅</span>
-                          <span>{option.estimatedDays} days</span>
+                          <span>{option.estimatedDays}</span>
                         </div>
                         
-                        {option.method.trackingAvailable && (
+                        {method.trackingAvailable && (
                           <div className="flex items-center space-x-1">
                             <span>📍</span>
                             <span>Tracking included</span>
@@ -276,7 +274,16 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
                   
                   <div className="text-right">
                     <div className="text-xl font-bold text-gray-900">
-                      {formatCurrency(option.totalCost)}
+                      {(() => {
+                        console.log(`💲 Displaying price for ${option.methodName}:`, {
+                          totalCost: option.totalCost,
+                          baseCost: option.baseCost,
+                          weightCost: option.weightCost,
+                          distanceCost: option.distanceCost,
+                          fullOption: option
+                        });
+                        return formatCurrency(option.totalCost);
+                      })()}
                     </div>
                   </div>
                 </div>

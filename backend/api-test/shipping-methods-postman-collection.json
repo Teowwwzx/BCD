@@ -1,0 +1,333 @@
+{
+    "info": {
+        "name": "Shipping Methods API",
+        "description": "API collection for testing shipping methods endpoints in BCD Marketplace",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [{
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "string"
+        },
+        {
+            "key": "authToken",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "shippingMethodId",
+            "value": "1",
+            "type": "string"
+        }
+    ],
+    "item": [{
+            "name": "Create Shipping Method (Admin)",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Express Delivery\",\n    \"description\": \"Fast delivery within 1-2 business days\",\n    \"baseRate\": \"15.00\",\n    \"perKgRate\": \"2.50\",\n    \"perKmRate\": \"0.10\",\n    \"minDeliveryDays\": 1,\n    \"maxDeliveryDays\": 2\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get All Shipping Methods",
+            "request": {
+                "method": "GET",
+                "header": [{
+                    "key": "Authorization",
+                    "value": "Bearer {{authToken}}"
+                }],
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get All Shipping Methods (Include Inactive)",
+            "request": {
+                "method": "GET",
+                "header": [{
+                    "key": "Authorization",
+                    "value": "Bearer {{authToken}}"
+                }],
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods?includeInactive=true",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods"],
+                    "query": [{
+                        "key": "includeInactive",
+                        "value": "true"
+                    }]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get Shipping Method by ID",
+            "request": {
+                "method": "GET",
+                "header": [{
+                    "key": "Authorization",
+                    "value": "Bearer {{authToken}}"
+                }],
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods/{{shippingMethodId}}",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods", "{{shippingMethodId}}"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Update Shipping Method (Admin)",
+            "request": {
+                "method": "PUT",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Updated Express Delivery\",\n    \"baseRate\": \"18.00\",\n    \"description\": \"Updated fast delivery service\",\n    \"isActive\": true\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods/{{shippingMethodId}}",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods", "{{shippingMethodId}}"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Delete Shipping Method (Admin)",
+            "request": {
+                "method": "DELETE",
+                "header": [{
+                    "key": "Authorization",
+                    "value": "Bearer {{authToken}}"
+                }],
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods/{{shippingMethodId}}",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods", "{{shippingMethodId}}"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Calculate Shipping Cost",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"shippingMethodId\": 1,\n    \"totalWeight\": 2.5,\n    \"distance\": 150,\n    \"destinationPostcode\": \"10001\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods/calculate",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods", "calculate"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Create Standard Shipping Method",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Standard Delivery\",\n    \"description\": \"Regular delivery within 3-5 business days\",\n    \"baseRate\": \"8.00\",\n    \"perKgRate\": \"1.50\",\n    \"perKmRate\": \"0.05\",\n    \"minDeliveryDays\": 3,\n    \"maxDeliveryDays\": 5\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Create Economy Shipping Method",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Economy Delivery\",\n    \"description\": \"Budget-friendly delivery within 7-10 business days\",\n    \"baseRate\": \"5.00\",\n    \"perKgRate\": \"1.00\",\n    \"minDeliveryDays\": 7,\n    \"maxDeliveryDays\": 10\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Test Invalid Shipping Method ID",
+            "request": {
+                "method": "GET",
+                "header": [{
+                    "key": "Authorization",
+                    "value": "Bearer {{authToken}}"
+                }],
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods/invalid",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods", "invalid"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Test Missing Required Fields",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Incomplete Method\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Test Invalid Delivery Days",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Invalid Method\",\n    \"baseRate\": \"10.00\",\n    \"minDeliveryDays\": 5,\n    \"maxDeliveryDays\": 2\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Calculate Shipping - Missing Method ID",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"totalWeight\": 2.5,\n    \"distance\": 150\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods/calculate",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods", "calculate"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Calculate Shipping - Zero Weight and Distance",
+            "request": {
+                "method": "POST",
+                "header": [{
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"shippingMethodId\": 1,\n    \"totalWeight\": 0,\n    \"distance\": 0\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/shipping-methods/calculate",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "shipping-methods", "calculate"]
+                }
+            },
+            "response": []
+        }
+    ]
+}

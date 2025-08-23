@@ -161,7 +161,7 @@ router.get('/user/:userId', async (req, res) => {
         const addresses = await prisma.user_addresses.findMany({
             where: whereConditions,
             orderBy: {
-                created_at: 'desc'
+                createdAt: 'desc'
             }
         });
 
