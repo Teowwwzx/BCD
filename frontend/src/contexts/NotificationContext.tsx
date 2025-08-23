@@ -33,10 +33,8 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // A real app would get the userId from a user/auth context
-    // We'll use a placeholder for now.
-    const MOCK_USER_ID = 1;
+    
+    const { user, isLoggedIn } = useAuth();
 
     const API_URL = 'http://localhost:5000/api/notifications';
 
@@ -52,7 +50,9 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
             const response = await fetch(`${API_URL}/${userId}`);
             if (!response.ok) throw new Error('Failed to fetch notifications.');
             const result = await response.json();
-            setNotifications(result.data);
+            // The API returns notifications in result.data.notifications, not result.data
+            const notifications = Array.isArray(result.data?.notifications) ? result.data.notifications : [];
+            setNotifications(notifications);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -81,17 +81,21 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         } catch (err: any) {
             setError(err.message);
             // Revert the optimistic update on failure
-            fetchNotifications(MOCK_USER_ID);
+            if (user?.id) {
+                fetchNotifications(user.id);
+            }
         }
     };
 
-    // Fetch initial notifications when the component mounts (e.g., when a user logs in)
+    // Fetch initial notifications when the user logs in
     useEffect(() => {
-        // In a real app, you would check if a user is logged in first
-        if (MOCK_USER_ID) {
-            fetchNotifications(MOCK_USER_ID);
+        if (isLoggedIn && user?.id) {
+            fetchNotifications(user.id);
+        } else {
+            // Clear notifications when user logs out
+            setNotifications([]);
         }
-    }, []); // Runs once on mount
+    }, [isLoggedIn, user?.id, fetchNotifications]); // Runs when login status or user changes
 
     const value = {
         notifications,

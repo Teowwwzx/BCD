@@ -18,7 +18,7 @@ export const useProduct = (id: string | null) => {
     const [error, setError] = useState<string | null>(null);
 
     const fetchProduct = useCallback(async () => {
-        console.log('HOOK (useProduct.ts): Hook called with id:', id);
+        // console.log('HOOK (useProduct.ts): Hook called with id:', id);
 
         if (!id) {
             setLoading(false);
@@ -29,18 +29,18 @@ export const useProduct = (id: string | null) => {
         setError(null);
 
         try {
-            console.log(`HOOK (useProduct.ts): Received id: "${id}"`);
+            // console.log(`HOOK (useProduct.ts): Received id: "${id}"`);
 
             if (id.startsWith('db-')) {
                 // --- THIS IS THE FIX ---
                 // 1. Get the full prefixed ID (e.g., "db-1")
                 // 2. Strip the prefix to get the clean numeric ID for the API call.
                 const numericId = id.substring(3);
-                console.log(`HOOK (useProduct.ts): Stripped prefix. Making API call with numericId: "${numericId}"`);
+                // console.log(`HOOK (useProduct.ts): Stripped prefix. Making API call with numericId: "${numericId}"`);
 
                 // 3. Make the API call with ONLY the numeric ID.
                 const response = await fetch(`${API_BASE_URL}/products/${numericId}`);
-                console.log(`HOOK (useProduct.ts): API call response status: ${response.status}`);
+                // console.log(`HOOK (useProduct.ts): API call response status: ${response.status}`);
 
                 if (!response.ok) {
                     throw new Error(`API Error: Product not found or failed to fetch.`);
@@ -62,7 +62,7 @@ export const useProduct = (id: string | null) => {
             } else if (id.startsWith('blockchain-')) {
                 // Handle blockchain product fetching
                 const blockchainId = id.substring(10); // Remove 'blockchain-' prefix
-                console.log(`HOOK (useProduct.ts): Fetching blockchain product with ID: "${blockchainId}"`);
+                // console.log(`HOOK (useProduct.ts): Fetching blockchain product with ID: "${blockchainId}"`);
                 
                 try {
                     const listing = await getListing(Number(blockchainId));

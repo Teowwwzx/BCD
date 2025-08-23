@@ -13,7 +13,7 @@ export default function ProductDetailPage() {
   
   // 4. Safely get the ID from the hook's result. It can be a string or string[].
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  console.log('PAGE COMPONENT (/products/[id]/page.tsx): Received id:', id);
+  // console.log('PAGE COMPONENT (/products/[id]/page.tsx): Received id:', id);
 
   return (
     <div className="min-h-screen bg-[#0d0221]">

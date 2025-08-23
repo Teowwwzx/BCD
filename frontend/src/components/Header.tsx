@@ -5,10 +5,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../hooks/useAuth';
-import { useNotifications } from '../contexts/NotificationContext';
 import { useCart } from '../contexts/CartContext';
-import { useModal } from '../contexts/ModalContext';
 import { User, UserRole } from '../types';
+import NotificationBell from './NotificationBell';
 
 // Helper to get user initials for the avatar
 const getInitials = (user: User) => {
@@ -83,18 +82,24 @@ const Header: React.FC = () => {
                     {/* User Actions */}
                     <div className="flex items-center space-x-4">
 
-                        {/* Show Cart ONLY if logged in */}
+                        {/* Show Notifications and Cart ONLY if logged in */}
                         {isLoggedIn && (
-                            <Link href="/cart" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative p-2">
-                                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 7a2 2 0 01-2 2H8a2 2 0 01-2-2L5 9z" />
-                                </svg>
-                                {cartCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                                        {cartCount > 99 ? '99+' : cartCount}
-                                    </span>
-                                )}
-                            </Link>
+                            <>
+                                {/* Notification Bell */}
+                                <NotificationBell />
+                                
+                                {/* Shopping Cart */}
+                                <Link href="/cart" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 relative p-2">
+                                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 7a2 2 0 01-2 2H8a2 2 0 01-2-2L5 9z" />
+                                    </svg>
+                                    {cartCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                            {cartCount > 99 ? '99+' : cartCount}
+                                        </span>
+                                    )}
+                                </Link>
+                            </>
                         )}
 
                         {isLoggedIn && user ? (
