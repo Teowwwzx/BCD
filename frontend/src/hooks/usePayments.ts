@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { parseEther, formatEther } from '../lib/web3';
 import { useAuth } from './useAuth';
+import { useToasts } from '../contexts/ToastContext';
 import { PaymentTransaction, PaymentMethod, TransactionStatus, CheckoutData } from '../types';
 
 interface PaymentState {
@@ -27,6 +28,8 @@ interface PaymentResult {
   paymentId?: string;
   orderId?: string;
   transactionHash?: string;
+  ethAmount?: string;
+  usdAmount?: string;
   gasUsed?: string;
   gasPrice?: string;
   error?: string;
@@ -42,6 +45,7 @@ export const usePayments = () => {
 
   // 2. Context Hooks
   const { token, user, walletAddress, connectWallet } = useAuth();
+  const { addToast } = useToasts();
 
   // Helper function to make API calls
   const makeApiCall = useCallback(async (url: string, options: RequestInit = {}) => {
@@ -173,7 +177,7 @@ export const usePayments = () => {
       // Ensure wallet is connected and request accounts
       if (!walletAddress) {
         const result = await connectWallet();
-        if (!result || !result.address) {
+        if (!result) {
           throw new Error('Please connect your wallet to continue');
         }
       }
@@ -210,13 +214,50 @@ export const usePayments = () => {
       }
       const resolvedRecipientAddress = paymentData.recipientAddress;
 
-      // Check wallet balance with error handling
+      // Check wallet balance with circuit breaker error handling
       let balance;
+      const getBalanceWithRetry = async (retryCount = 0): Promise<bigint> => {
+        const maxRetries = 3;
+        const retryDelay = 1000;
+        
+        try {
+          return await provider.getBalance(userAddress);
+        } catch (balanceError: any) {
+          // Handle MetaMask circuit breaker errors
+          if ((balanceError.message?.includes('circuit breaker is open') || 
+               balanceError.message?.includes('Execution prevented') ||
+               balanceError.code === 'UNKNOWN_ERROR') && retryCount < maxRetries) {
+            
+            console.warn(`MetaMask circuit breaker detected during payment, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return getBalanceWithRetry(retryCount + 1);
+          }
+          
+          console.error('Failed to get wallet balance:', balanceError);
+          
+          // Show user-friendly toast for circuit breaker errors
+          if (balanceError.message?.includes('circuit breaker') || balanceError.message?.includes('MetaMask')) {
+            addToast(
+              'MetaMask is temporarily overloaded. Please wait a moment and try again.',
+              'error',
+              'Payment Error'
+            );
+          } else {
+            addToast(
+              'Unable to check wallet balance. Please refresh MetaMask and try again.',
+              'error',
+              'Payment Error'
+            );
+          }
+          
+          throw new Error('Unable to check wallet balance. Please try again later or refresh MetaMask.');
+        }
+      };
+      
       try {
-        balance = await provider.getBalance(userAddress);
+        balance = await getBalanceWithRetry();
       } catch (balanceError) {
-        console.error('Failed to get wallet balance:', balanceError);
-        throw new Error('Unable to check wallet balance. Please try again.');
+        throw balanceError;
       }
       
       // Convert USD amount to ETH (using a simple conversion for demo purposes)
@@ -305,7 +346,7 @@ export const usePayments = () => {
         type: 0, // Use legacy transaction type to avoid EIP-1559 issues on local network
       };
 
-      let txResponse;
+      let txResponse: ethers.TransactionResponse;
       try {
         txResponse = await signer.sendTransaction(transaction);
       } catch (txError) {
@@ -317,18 +358,19 @@ export const usePayments = () => {
             throw new Error('Insufficient funds for transaction');
           }
         }
-        // throw new Error('Failed to send transaction. Please try again.');
+        throw new Error('Failed to send transaction. Please try again.');
       }
       
       // Wait for transaction confirmation with timeout
-      let receipt;
+      let receipt: ethers.TransactionReceipt;
       try {
-        receipt = await Promise.race([
+        const receiptResult = await Promise.race([
           txResponse.wait(),
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Transaction confirmation timeout')), 60000)
           )
         ]);
+        receipt = receiptResult as ethers.TransactionReceipt;
       } catch (receiptError) {
         throw new Error('Transaction confirmation failed. Please check your transaction hash manually.');
       }
@@ -473,8 +515,11 @@ export const usePayments = () => {
     }
   }, []);
 
-  // Helper function to get wallet balance
-  const getWalletBalance = useCallback(async (): Promise<string | null> => {
+  // Helper function to get wallet balance with circuit breaker error handling
+  const getWalletBalance = useCallback(async (retryCount = 0): Promise<string | null> => {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
+    
     try {
       if (!walletAddress || typeof window === 'undefined' || !window.ethereum) {
         return null;
@@ -484,8 +529,47 @@ export const usePayments = () => {
       const ethereum = window.ethereum as any;
       const provider = new ethers.BrowserProvider(ethereum);
       const balance = await provider.getBalance(walletAddress);
-      return formatEther(balance);
-    } catch (error) {
+      const formattedBalance = formatEther(balance);
+      
+      // Cache the balance for circuit breaker fallback
+      localStorage.setItem(`wallet_balance_${walletAddress}`, formattedBalance);
+      
+      return formattedBalance;
+    } catch (error: any) {
+      // Handle MetaMask circuit breaker errors
+      if (error.message?.includes('circuit breaker is open') || 
+          error.message?.includes('Execution prevented') ||
+          error.code === 'UNKNOWN_ERROR') {
+        
+        if (retryCount < maxRetries) {
+          console.warn(`MetaMask circuit breaker detected in usePayments, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return getWalletBalance(retryCount + 1);
+        } else {
+          // console.error('MetaMask circuit breaker: Max retries exceeded in usePayments, using cached balance');
+          // Try to get cached balance from localStorage
+          if (walletAddress) {
+            const cachedBalance = localStorage.getItem(`wallet_balance_${walletAddress}`);
+            if (cachedBalance) {
+              addToast(
+                'MetaMask is temporarily overloaded. Using cached balance.',
+                'info',
+                'Wallet Connection'
+              );
+              return cachedBalance;
+            } else {
+              addToast(
+                'MetaMask is temporarily overloaded. Please try again in a moment.',
+                'error',
+                'Wallet Connection'
+              );
+              return '0.0';
+            }
+          }
+          return '0.0';
+        }
+      }
+      
       console.error('Error getting wallet balance:', error);
       return null;
     }

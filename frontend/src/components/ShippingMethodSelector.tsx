@@ -59,12 +59,12 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
           destinationPostcode,
         });
         
-        console.log('💰 Raw calculations from API:', calculations);
+        // console.log('💰 Raw calculations from API:', calculations);
         
         // Use the calculations directly since they already have the correct structure
         setShippingOptions(calculations);
         
-        console.log('✅ Final shipping options set:', calculations);
+        // console.log('✅ Final shipping options set:', calculations);
 
       } catch (error) {
         console.error('❌ Failed to calculate shipping costs:', error);
@@ -97,12 +97,12 @@ export const ShippingMethodSelector: React.FC<ShippingMethodSelectorProps> = ({
   }, []);
 
   const formatCurrency = useCallback((amount: number) => {
-    console.log('💰 formatCurrency called with amount:', amount, 'type:', typeof amount);
+    // console.log('💰 formatCurrency called with amount:', amount, 'type:', typeof amount);
     const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
-    console.log('💰 formatCurrency returning:', formatted);
+    // console.log('💰 formatCurrency returning:', formatted);
     return formatted;
   }, []);
 

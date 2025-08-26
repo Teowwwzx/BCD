@@ -370,33 +370,9 @@ async function main() {
     }),
     prisma.shippingMethod.create({
       data: {
-        name: 'Express Delivery',
-        description: 'Fast delivery within 1-2 business days',
-        baseRate: 15.99,
-        perKgRate: 2.50,
-        perKmRate: 0.10,
-        minDeliveryDays: 1,
-        maxDeliveryDays: 2,
-        isActive: true
-      }
-    }),
-    prisma.shippingMethod.create({
-      data: {
-        name: 'Economy Delivery',
-        description: 'Budget-friendly delivery within 7-10 business days',
-        baseRate: 4.99,
-        perKgRate: 1.00,
-        perKmRate: 0.03,
-        minDeliveryDays: 7,
-        maxDeliveryDays: 10,
-        isActive: true
-      }
-    }),
-    prisma.shippingMethod.create({
-      data: {
-        name: 'Overnight Delivery',
+        name: 'Self Pickup',
         description: 'Next business day delivery',
-        baseRate: 25.99,
+        baseRate: 5,
         perKgRate: 3.00,
         perKmRate: 0.15,
         minDeliveryDays: 1,
@@ -750,7 +726,7 @@ async function main() {
     // Non-verified review (user didn\'t purchase)
     const review4 = await prisma.product_reviews.create({
       data: {
-        product_id: createdFakeProducts[5].id,
+        product_id: createdFakeProducts[4].id,
         user_id: regularUsers[3].id, // buyer2
         rating: 2,
         title: 'Not as described',
@@ -763,6 +739,451 @@ async function main() {
   }
 
   console.log('⭐ Created product reviews:', reviews.length);
+
+  // Create Coupons
+  const coupons = await Promise.all([
+    prisma.coupon.create({
+      data: {
+        code: 'WELCOME15',
+        description: 'Welcome bonus - 15% off your first order',
+        discount_type: 'percentage',
+        discount_value: '15.00',
+        minimum_order_amount: '25.00',
+        maximum_discount_amount: '25.00',
+        usageLimit: 1000,
+        usage_count: 45,
+        user_usage_limit: 1,
+        status: 'active',
+        valid_from: new Date('2024-01-01'),
+        valid_until: new Date('2025-12-31')
+      }
+    }),
+    prisma.coupon.create({
+      data: {
+        code: 'SAVE20',
+        description: '20% off on orders over $100',
+        discount_type: 'percentage',
+        discount_value: '20.00',
+        minimum_order_amount: '100.00',
+        maximum_discount_amount: '50.00',
+        usageLimit: 500,
+        usage_count: 123,
+        user_usage_limit: 3,
+        status: 'active',
+        valid_from: new Date('2024-01-01'),
+        valid_until: new Date('2025-06-30')
+      }
+    }),
+    prisma.coupon.create({
+      data: {
+        code: 'FIXED10',
+        description: '$10 off your order',
+        discount_type: 'fixed_amount',
+        discount_value: '10.00',
+        minimum_order_amount: '50.00',
+        usageLimit: 200,
+        usage_count: 67,
+        user_usage_limit: 2,
+        status: 'active',
+        valid_from: new Date('2024-01-01'),
+        valid_until: new Date('2025-12-31')
+      }
+    }),
+    prisma.coupon.create({
+      data: {
+        code: 'FREESHIP',
+        description: 'Free shipping on orders over $75',
+        discount_type: 'fixed_amount',
+        discount_value: '15.00',
+        minimum_order_amount: '75.00',
+        usageLimit: null,
+        usage_count: 234,
+        user_usage_limit: 5,
+        status: 'active',
+        valid_from: new Date('2024-01-01'),
+        valid_until: new Date('2025-12-31')
+      }
+    }),
+    prisma.coupon.create({
+      data: {
+        code: 'EXPIRED50',
+        description: '50% off - Limited time offer (EXPIRED)',
+        discount_type: 'percentage',
+        discount_value: '50.00',
+        minimum_order_amount: '200.00',
+        maximum_discount_amount: '100.00',
+        usageLimit: 100,
+        usage_count: 89,
+        user_usage_limit: 1,
+        status: 'inactive',
+        valid_from: new Date('2023-11-01'),
+        valid_until: new Date('2025-12-31')
+      }
+    }),
+    prisma.coupon.create({
+      data: {
+        code: 'BLACKFRIDAY',
+        description: 'Black Friday Special - 30% off everything',
+        discount_type: 'percentage',
+        discount_value: '30.00',
+        minimum_order_amount: '150.00',
+        maximum_discount_amount: '75.00',
+        usageLimit: 1000,
+        usage_count: 456,
+        user_usage_limit: 1,
+        status: 'active',
+        valid_from: new Date('2024-11-25'),
+        valid_until: new Date('2025-11-30')
+      }
+    }),
+    prisma.coupon.create({
+      data: {
+        code: 'NEWUSER25',
+        description: '$25 off for new customers',
+        discount_type: 'fixed_amount',
+        discount_value: '25.00',
+        minimum_order_amount: '100.00',
+        usageLimit: 500,
+        usage_count: 78,
+        user_usage_limit: 1,
+        status: 'active',
+        valid_from: new Date('2024-01-01'),
+        valid_until: new Date('2025-12-31')
+      }
+    })
+  ]);
+
+  console.log('🎫 Created coupons:', coupons.length);
+
+  // Create Coupon Usage Records
+  const couponUsages = [];
+  if (orders.length > 0 && coupons.length > 0) {
+    const usage1 = await prisma.coupon_usage.create({
+      data: {
+        coupon_id: coupons[0].id, // WELCOME15
+        user_id: regularUsers[2].id, // buyer
+        order_id: orders[0].id,
+        discount_amount: '15.00'
+      }
+    });
+    couponUsages.push(usage1);
+
+    const usage2 = await prisma.coupon_usage.create({
+      data: {
+        coupon_id: coupons[1].id, // SAVE20
+        user_id: regularUsers[3].id, // buyer2
+        order_id: orders[2].id,
+        discount_amount: '40.00'
+      }
+    });
+    couponUsages.push(usage2);
+
+    const usage3 = await prisma.coupon_usage.create({
+      data: {
+        coupon_id: coupons[2].id, // FIXED10
+        user_id: regularUsers[2].id, // buyer
+        order_id: orders[1].id,
+        discount_amount: '10.00'
+      }
+    });
+    couponUsages.push(usage3);
+  }
+
+  console.log('🎟️ Created coupon usages:', couponUsages.length);
+
+  // Create More Notifications
+  const additionalNotifications = [];
+  if (orders.length > 0 && createdFakeProducts.length > 0) {
+    // Product-related notifications
+    const notif1 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[0].id, // seller
+        type: 'system_message',
+        title: 'Product Stock Low',
+        message: `Your product "${createdFakeProducts[0].name}" is running low on stock. Only 5 items remaining.`,
+        related_product_id: createdFakeProducts[0].id,
+        isRead: false
+      }
+    });
+    additionalNotifications.push(notif1);
+
+    const notif2 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[1].id, // seller2
+        type: 'product_review',
+        title: 'New Review Received',
+        message: `You received a new 5-star review for "${createdFakeProducts[1].name}". Check it out!`,
+        related_product_id: createdFakeProducts[1].id,
+        isRead: false
+      }
+    });
+    additionalNotifications.push(notif2);
+
+    // Order notifications for sellers
+    const notif3 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[0].id, // seller
+        type: 'order_update',
+        title: 'New Order Received',
+        message: `You have received a new order #${orders[0].id}. Please prepare for shipment.`,
+        related_order_id: orders[0].id,
+        isRead: true
+      }
+    });
+    additionalNotifications.push(notif3);
+
+    const notif4 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[1].id, // seller2
+        type: 'order_update',
+        title: 'Order Cancelled',
+        message: `Order #${orders[3].id} has been cancelled due to payment failure. Please update your inventory.`,
+        related_order_id: orders[3].id,
+        isRead: false
+      }
+    });
+    additionalNotifications.push(notif4);
+
+    // System notifications
+    const notif5 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[2].id, // buyer
+        type: 'system_message',
+        title: 'Welcome to BCD Marketplace!',
+        message: 'Thank you for joining our marketplace. Explore thousands of products and enjoy shopping!',
+        isRead: true
+      }
+    });
+    additionalNotifications.push(notif5);
+
+    const notif6 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[3].id, // buyer2
+        type: 'promotion',
+        title: 'Special Offer Just for You!',
+        message: 'Use code SAVE20 to get 20% off your next order. Valid until end of month!',
+        isRead: false
+      }
+    });
+    additionalNotifications.push(notif6);
+
+    // Admin notifications
+    const notif7 = await prisma.notification.create({
+      data: {
+        userId: adminUsers[0].id, // admin
+        type: 'system_message',
+        title: 'Daily Sales Report',
+        message: 'Today\'s sales: $1,247.89 from 23 orders. Revenue increased by 15% compared to yesterday.',
+        isRead: false
+      }
+    });
+    additionalNotifications.push(notif7);
+
+    const notif8 = await prisma.notification.create({
+      data: {
+        userId: adminUsers[1].id, // admin2
+        type: 'system_message',
+        title: 'Product Review Flagged',
+        message: 'A product review has been flagged for inappropriate content. Please review and take action.',
+        isRead: false
+      }
+    });
+    additionalNotifications.push(notif8);
+
+    // Payment notifications
+    const notif9 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[2].id, // buyer
+        type: 'payment_received',
+        title: 'Payment Confirmed',
+        message: `Your payment of $${orders[0].totalAmount} for order #${orders[0].id} has been confirmed.`,
+        related_order_id: orders[0].id,
+        isRead: true
+      }
+    });
+    additionalNotifications.push(notif9);
+
+    const notif10 = await prisma.notification.create({
+      data: {
+        userId: regularUsers[3].id, // buyer2
+        type: 'payment_received',
+        title: 'Payment Processing',
+        message: `Your payment for order #${orders[1].id} is being processed. You will be notified once confirmed.`,
+        related_order_id: orders[1].id,
+        isRead: false
+      }
+    });
+    additionalNotifications.push(notif10);
+  }
+
+  console.log('🔔 Created additional notifications:', additionalNotifications.length);
+
+  // Create More Product Reviews
+  const additionalReviews = [];
+  if (createdFakeProducts.length > 5 && orderItems.length > 0) {
+    // More verified reviews
+    const review5 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[5].id,
+        user_id: regularUsers[2].id, // buyer
+        rating: 5,
+        title: 'Excellent quality!',
+        review_text: 'This product exceeded my expectations. Great build quality, fast shipping, and excellent customer service. Highly recommended!',
+        is_verified_purchase: false,
+        status: 'approved'
+      }
+    });
+    additionalReviews.push(review5);
+
+    const review6 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[6].id,
+        user_id: regularUsers[3].id, // buyer2
+        rating: 4,
+        title: 'Good product, minor issues',
+        review_text: 'Overall satisfied with the purchase. The product works as described, but the packaging could be better. Would still recommend.',
+        is_verified_purchase: false,
+        status: 'approved'
+      }
+    });
+    additionalReviews.push(review6);
+
+    const review7 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[7].id,
+        user_id: regularUsers[2].id, // buyer
+        rating: 3,
+        title: 'Average product',
+        review_text: 'The product is okay for the price. Nothing special but does the job. Delivery was prompt.',
+        is_verified_purchase: false,
+        status: 'approved'
+      }
+    });
+    additionalReviews.push(review7);
+
+    const review8 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[8].id,
+        user_id: regularUsers[3].id, // buyer2
+        rating: 2,
+        title: 'Disappointed',
+        review_text: 'Product quality is not as advertised. Had issues with functionality right out of the box. Customer service was helpful though.',
+        is_verified_purchase: false,
+        status: 'approved'
+      }
+    });
+    additionalReviews.push(review8);
+
+    const review9 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[9].id,
+        user_id: regularUsers[2].id, // buyer
+        rating: 5,
+        title: 'Perfect!',
+        review_text: 'Exactly what I was looking for. Great value for money and excellent quality. Will definitely buy from this seller again.',
+        is_verified_purchase: false,
+        status: 'approved'
+      }
+    });
+    additionalReviews.push(review9);
+
+    // Pending review (needs moderation)
+    const review10 = await prisma.product_reviews.create({
+      data: {
+        product_id: createdFakeProducts[10] ? createdFakeProducts[10].id : createdFakeProducts[0].id,
+        user_id: regularUsers[3].id, // buyer2
+        rating: 1,
+        title: 'Terrible experience',
+        review_text: 'This product is completely useless. Waste of money. Seller should be banned from the platform.',
+        is_verified_purchase: false,
+        status: 'pending'
+      }
+    });
+    additionalReviews.push(review10);
+
+    // NFT review if exists
+    if (onchainProduct) {
+      const nftReview = await prisma.product_reviews.create({
+        data: {
+          product_id: onchainProduct.id,
+          user_id: regularUsers[2].id, // buyer
+          rating: 5,
+          title: 'Amazing Digital Art!',
+          review_text: 'This NFT is absolutely stunning! The artwork is beautiful and the blockchain verification gives me confidence in its authenticity. Worth every penny!',
+          is_verified_purchase: false,
+          status: 'approved'
+        }
+      });
+      additionalReviews.push(nftReview);
+    }
+  }
+
+  console.log('⭐ Created additional reviews:', additionalReviews.length);
+
+  // Create Cart Items
+  const cartItems = [];
+  if (createdFakeProducts.length > 0) {
+    // Buyer's cart
+    const cart1 = await prisma.cartItem.create({
+      data: {
+        userId: regularUsers[2].id, // buyer
+        productId: createdFakeProducts[11] ? createdFakeProducts[11].id : createdFakeProducts[1].id,
+        quantity: 2
+      }
+    });
+    cartItems.push(cart1);
+
+    const cart2 = await prisma.cartItem.create({
+      data: {
+        userId: regularUsers[2].id, // buyer
+        productId: createdFakeProducts[12] ? createdFakeProducts[12].id : createdFakeProducts[2].id,
+        quantity: 1
+      }
+    });
+    cartItems.push(cart2);
+
+    const cart3 = await prisma.cartItem.create({
+      data: {
+        userId: regularUsers[2].id, // buyer
+        productId: createdFakeProducts[13] ? createdFakeProducts[13].id : createdFakeProducts[3].id,
+        quantity: 3
+      }
+    });
+    cartItems.push(cart3);
+
+    // Buyer2's cart
+    const cart4 = await prisma.cartItem.create({
+      data: {
+        userId: regularUsers[3].id, // buyer2
+        productId: createdFakeProducts[14] ? createdFakeProducts[14].id : createdFakeProducts[4].id,
+        quantity: 1
+      }
+    });
+    cartItems.push(cart4);
+
+    const cart5 = await prisma.cartItem.create({
+      data: {
+        userId: regularUsers[3].id, // buyer2
+        productId: createdFakeProducts[15] ? createdFakeProducts[15].id : createdFakeProducts[5].id,
+        quantity: 2
+      }
+    });
+    cartItems.push(cart5);
+
+    // Add NFT to cart if exists
+    if (onchainProduct) {
+      const nftCart = await prisma.cartItem.create({
+        data: {
+          userId: regularUsers[3].id, // buyer2
+          productId: onchainProduct.id,
+          quantity: 1
+        }
+      });
+      cartItems.push(nftCart);
+    }
+  }
+
+  console.log('🛒 Created cart items:', cartItems.length);
 
   // Create Wishlist Items
   const wishlistItems = [];
@@ -834,8 +1255,11 @@ async function main() {
   console.log(`   📦 Order Items: ${orderItems.length}`);
   console.log(`   🚚 Shipments: ${shipments.length}`);
   console.log(`   💳 Payment Transactions: ${payments.length}`);
-  console.log(`   🔔 Notifications: ${notifications.length}`);
-  console.log(`   ⭐ Product Reviews: ${reviews.length}`);
+  console.log(`   🎫 Coupons: ${coupons.length}`);
+  console.log(`   🎟️ Coupon Usages: ${couponUsages.length}`);
+  console.log(`   🔔 Notifications: ${notifications.length + additionalNotifications.length}`);
+  console.log(`   ⭐ Product Reviews: ${reviews.length + additionalReviews.length}`);
+  console.log(`   🛒 Cart Items: ${cartItems.length}`);
   console.log(`   💝 Wishlist Items: ${wishlistItems.length}`);
   console.log('\n🔑 User Credentials:');
   console.log('   Username: admin | Wallet: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');

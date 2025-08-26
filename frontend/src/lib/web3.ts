@@ -108,19 +108,50 @@ export const connectWallet = async () => {
 
 
 /**
- * Gets the ETH balance for a given wallet address
+ * Gets the ETH balance for a given wallet address with circuit breaker error handling
  */
-export const getWalletBalance = async (address: string): Promise<string> => {
+export const getWalletBalance = async (address: string, retryCount = 0): Promise<string> => {
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+  
   if (typeof window === 'undefined' || !window.ethereum) {
     // Fallback to local provider for server-side or no wallet scenarios
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
-    const balance = await provider.getBalance(address);
-    return ethers.formatEther(balance);
+    try {
+      const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
+      const balance = await provider.getBalance(address);
+      return ethers.formatEther(balance);
+    } catch (error: any) {
+      console.warn('Local provider failed, returning 0 balance:', error.message);
+      return '0.0';
+    }
   }
   
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const balance = await provider.getBalance(address);
-  return ethers.formatEther(balance);
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const balance = await provider.getBalance(address);
+    return ethers.formatEther(balance);
+  } catch (error: any) {
+    // Handle MetaMask circuit breaker errors
+    if (error.message?.includes('circuit breaker is open') || 
+        error.message?.includes('Execution prevented') ||
+        error.code === 'UNKNOWN_ERROR') {
+      
+      if (retryCount < maxRetries) {
+        console.warn(`MetaMask circuit breaker detected, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return getWalletBalance(address, retryCount + 1);
+      } else {
+        console.error('MetaMask circuit breaker: Max retries exceeded, returning cached or default balance');
+        // Try to get cached balance from localStorage or return 0
+        const cachedBalance = localStorage.getItem(`wallet_balance_${address}`);
+        return cachedBalance || '0.0';
+      }
+    }
+    
+    // Handle other errors
+    console.error('Error getting wallet balance:', error);
+    throw new Error(`Failed to get wallet balance: ${error.message}`);
+  }
 };
 
 // =================================================================

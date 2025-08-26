@@ -1,8 +1,11 @@
+// src/components/OrderSummary.tsx
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { CartItem, OrderCalculation } from '../types';
+import { useToasts } from '../contexts/ToastContext';
 
+// 1. Props are updated: onCouponApply is replaced with onSelectCouponClick
 interface OrderSummaryProps {
   cartItems: CartItem[];
   shippingCost?: number;
@@ -10,16 +13,11 @@ interface OrderSummaryProps {
   couponCode?: string;
   couponDiscount?: number;
   taxRate?: number;
-  onCouponApply?: (code: string) => Promise<{ discount: number; error?: string }>;
+  onSelectCouponClick: () => void; // Prop to open the modal
   onCouponRemove?: () => void;
+  showCouponToast?: boolean; // Flag to show toast when coupon is applied
   isLoading?: boolean;
   className?: string;
-}
-
-interface CouponState {
-  code: string;
-  isApplying: boolean;
-  error: string | null;
 }
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -29,19 +27,15 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   couponCode,
   couponDiscount = 0,
   taxRate = 0.1, // 10% default tax rate
-  onCouponApply,
+  onSelectCouponClick,
   onCouponRemove,
   isLoading = false,
   className = '',
+  showCouponToast = false,
 }) => {
-  // 1. State Hooks
-  const [couponState, setCouponState] = useState<CouponState>({
-    code: couponCode || '',
-    isApplying: false,
-    error: null,
-  });
+  // 2. Internal state for the input is no longer needed.
+  // The component now only displays state managed by the parent page.
 
-  // 4. Performance Hooks
   const orderCalculation = useMemo<OrderCalculation>(() => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const discountAmount = couponDiscount;
@@ -49,215 +43,87 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
     const taxAmount = subtotalAfterDiscount * taxRate;
     const totalAmount = subtotalAfterDiscount + taxAmount + shippingCost;
     
-    return {
-      subtotal,
-      discountAmount,
-      taxAmount,
-      shippingAmount: shippingCost,
-      totalAmount,
-    };
+    return { subtotal, discountAmount, taxAmount, shippingAmount: shippingCost, totalAmount };
   }, [cartItems, couponDiscount, taxRate, shippingCost]);
 
+  const { addToast } = useToasts();
+  
   const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   }, []);
-
-  const handleCouponInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
-    setCouponState(prev => ({ ...prev, code: value, error: null }));
-  }, []);
-
-  const handleCouponApply = useCallback(async () => {
-    if (!onCouponApply || !couponState.code.trim()) return;
-    
-    setCouponState(prev => ({ ...prev, isApplying: true, error: null }));
-    
-    try {
-      const result = await onCouponApply(couponState.code.trim());
-      
-      if (result.error) {
-        setCouponState(prev => ({ ...prev, error: result.error!, isApplying: false }));
-      } else {
-        setCouponState(prev => ({ ...prev, isApplying: false, error: null }));
-      }
-    } catch (error) {
-      setCouponState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Failed to apply coupon',
-        isApplying: false,
-      }));
+  // Show toast notification when coupon is applied
+  React.useEffect(() => {
+    if (showCouponToast && couponCode && couponDiscount > 0) {
+      addToast(`Coupon "${couponCode}" applied! You saved ${formatCurrency(couponDiscount)}`, 'success');
     }
-  }, [couponState.code, onCouponApply]);
+  }, [showCouponToast, couponCode, couponDiscount, formatCurrency, addToast]);
 
-  const handleCouponRemove = useCallback(() => {
-    if (onCouponRemove) {
-      onCouponRemove();
-    }
-    setCouponState({ code: '', isApplying: false, error: null });
-  }, [onCouponRemove]);
-
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleCouponApply();
-    }
-  }, [handleCouponApply]);
 
   return (
-    <div className={`order-summary bg-white rounded-lg border border-gray-200 p-6 ${className}`}>
-      <h3 className="text-lg font-semibold mb-4 text-gray-800">
+    <div className={`order-summary bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 ${className}`}>
+      <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">
         Order Summary
       </h3>
       
       {/* Cart Items */}
-      <div className="space-y-3 mb-6">
+      <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
         {cartItems.map((item) => (
-          <div key={`${item.productId}-${item.id || 'default'}`} className="flex items-center justify-between">
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-gray-900">
-                {item.product.name}
-              </h4>
-              <p className="text-xs text-gray-500">
-                Qty: {item.quantity} × {formatCurrency(item.product.price)}
-              </p>
+          <div key={item.productId} className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-200">{item.product.name}</h4>
+              <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
             </div>
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-200">
               {formatCurrency(item.product.price * item.quantity)}
             </div>
           </div>
         ))}
       </div>
       
-      {/* Coupon Section */}
-      {onCouponApply && (
-        <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">
-            Coupon Code
-          </h4>
-          
-          {couponCode && couponDiscount > 0 ? (
-            <div className="flex items-center justify-between rounded-md bg-green-50 border border-green-200 p-3">
-              <div className="flex items-center space-x-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm font-medium text-green-800">
-                  {couponCode}
-                </span>
-                <span className="text-sm text-green-600">
-                  (-{formatCurrency(couponDiscount)})
-                </span>
-              </div>
-              <button
-                onClick={handleCouponRemove}
-                className="text-sm text-green-600 hover:text-green-800 underline"
-                disabled={isLoading}
-              >
-                Remove
-              </button>
+      {/* 3. The input field is replaced with a "Select Coupon" button */}
+      <div className="mb-6">
+        {couponCode && couponDiscount > 0 ? (
+          <div className="flex items-center justify-between rounded-md bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 p-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-green-600 dark:text-green-400">✓</span>
+              <span className="text-sm font-medium text-green-800 dark:text-green-300">{couponCode}</span>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={couponState.code}
-                  onChange={handleCouponInputChange}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter coupon code"
-                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  disabled={isLoading || couponState.isApplying}
-                />
-                <button
-                  onClick={handleCouponApply}
-                  disabled={isLoading || couponState.isApplying || !couponState.code.trim()}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {couponState.isApplying ? 'Applying...' : 'Apply'}
-                </button>
-              </div>
-              
-              {couponState.error && (
-                <p className="text-sm text-red-600">
-                  {couponState.error}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Order Totals */}
-      <div className="space-y-3 border-t border-gray-200 pt-4">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Subtotal</span>
-          <span className="text-gray-900">
-            {formatCurrency(orderCalculation.subtotal)}
-          </span>
-        </div>
-        
-        {couponDiscount > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-green-600">Discount</span>
-            <span className="text-green-600">
-              -{formatCurrency(orderCalculation.discountAmount)}
-            </span>
+            <button
+              onClick={() => {
+                onCouponRemove?.();
+                addToast('Coupon removed', 'success');
+              }}
+              className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 underline"
+              disabled={isLoading}
+            >
+              Remove
+            </button>
           </div>
+        ) : (
+          <button
+            onClick={onSelectCouponClick} // This prop opens the modal on the parent page
+            className="w-full text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium py-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20"
+            disabled={isLoading}
+          >
+            Select a Coupon
+          </button>
         )}
-        
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">
-            Shipping
-            {selectedShippingMethodName && (
-              <span className="text-xs text-gray-500 block">
-                via {selectedShippingMethodName}
-              </span>
-            )}
-          </span>
-          <span className="text-gray-900">
-            {shippingCost > 0 ? formatCurrency(shippingCost) : 'Free'}
-          </span>
-        </div>
-        
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">
-            Tax ({Math.round(taxRate * 100)}%)
-          </span>
-          <span className="text-gray-900">
-            {formatCurrency(orderCalculation.taxAmount)}
-          </span>
-        </div>
-        
-        <div className="border-t border-gray-200 pt-3">
-          <div className="flex justify-between">
-            <span className="text-lg font-semibold text-gray-900">Total</span>
-            <span className="text-lg font-semibold text-gray-900">
-              {formatCurrency(orderCalculation.totalAmount)}
-            </span>
-          </div>
-        </div>
       </div>
       
-      {/* Savings Summary */}
-      {couponDiscount > 0 && (
-        <div className="mt-4 rounded-md bg-green-50 border border-green-200 p-3">
-          <div className="flex items-center space-x-2">
-            <span className="text-green-600">🎉</span>
-            <span className="text-sm font-medium text-green-800">
-              You saved {formatCurrency(couponDiscount)} with your coupon!
-            </span>
-          </div>
-        </div>
-      )}
-      
-      {/* Order Details */}
-      <div className="mt-6 text-xs text-gray-500 space-y-1">
-        <p>• All prices include applicable taxes</p>
-        <p>• Shipping costs are calculated based on your location</p>
-        <p>• Final total will be charged at checkout</p>
-        {cartItems.length > 0 && (
-          <p>• Total items: {cartItems.reduce((sum, item) => sum + item.quantity, 0)}</p>
+      {/* Order Totals */}
+      <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <div className="flex justify-between text-sm"><span className="text-gray-600 dark:text-gray-400">Subtotal</span><span className="text-gray-900 dark:text-gray-200">{formatCurrency(orderCalculation.subtotal)}</span></div>
+        
+        <div className="flex justify-between text-sm"><span className="text-gray-600 dark:text-gray-400">Shipping</span><span className="text-gray-900 dark:text-gray-200">{shippingCost > 0 ? formatCurrency(shippingCost) : 'Free'}</span></div>
+        
+        {couponDiscount > 0 && (
+          <div className="flex justify-between text-sm"><span className="text-green-600 dark:text-green-400">Coupon Discount ({couponCode})</span><span className="text-green-600 dark:text-green-400">-{formatCurrency(orderCalculation.discountAmount)}</span></div>
         )}
+        <div className="flex justify-between text-sm"><span className="text-gray-600 dark:text-gray-400">Tax ({Math.round(taxRate * 100)}%)</span><span className="text-gray-900 dark:text-gray-200">{formatCurrency(orderCalculation.taxAmount)}</span></div>
+        
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
+          <div className="flex justify-between"><span className="text-lg font-semibold text-gray-900 dark:text-white">Total</span><span className="text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(orderCalculation.totalAmount)}</span></div>
+        </div>
       </div>
     </div>
   );

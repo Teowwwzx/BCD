@@ -1,0 +1,553 @@
+{
+  "info": {
+    "name": "Coupons API",
+    "description": "API collection for testing coupons endpoints in BCD Marketplace",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "couponId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Percentage Coupon (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"SAVE20\",\n    \"description\": \"20% off on all items\",\n    \"discount_type\": \"percentage\",\n    \"discount_value\": \"20.00\",\n    \"minimum_order_amount\": \"100.00\",\n    \"maximum_discount_amount\": \"50.00\",\n    \"usageLimit\": 100,\n    \"user_usage_limit\": 1,\n    \"valid_from\": \"2024-01-01T00:00:00Z\",\n    \"valid_until\": \"2024-12-31T23:59:59Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Fixed Amount Coupon (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"FIXED10\",\n    \"description\": \"$10 off your order\",\n    \"discount_type\": \"fixed_amount\",\n    \"discount_value\": \"10.00\",\n    \"minimum_order_amount\": \"50.00\",\n    \"usageLimit\": 50,\n    \"user_usage_limit\": 2,\n    \"valid_from\": \"2024-01-01T00:00:00Z\",\n    \"valid_until\": \"2024-06-30T23:59:59Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Coupons",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Coupons (Include Expired)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons?includeExpired=true&status=all",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"],
+          "query": [
+            {
+              "key": "includeExpired",
+              "value": "true"
+            },
+            {
+              "key": "status",
+              "value": "all"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Coupons by Discount Type",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons?discount_type=percentage&page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"],
+          "query": [
+            {
+              "key": "discount_type",
+              "value": "percentage"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Coupon by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/{{couponId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "{{couponId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Coupon (Admin)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"description\": \"Updated 20% off on all items - Limited time!\",\n    \"usageLimit\": 200,\n    \"maximum_discount_amount\": \"75.00\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/{{couponId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "{{couponId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Deactivate Coupon (Admin)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"status\": \"inactive\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/{{couponId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "{{couponId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Coupon (Admin)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/{{couponId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "{{couponId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Validate Coupon Code",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"SAVE20\",\n    \"userId\": {{userId}},\n    \"orderAmount\": \"150.00\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/validate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "validate"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Apply Coupon Code",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"SAVE20\",\n    \"orderAmount\": \"150.00\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/apply",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "apply"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Welcome Coupon",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"WELCOME15\",\n    \"description\": \"Welcome bonus - 15% off your first order\",\n    \"discount_type\": \"percentage\",\n    \"discount_value\": \"15.00\",\n    \"minimum_order_amount\": \"25.00\",\n    \"maximum_discount_amount\": \"25.00\",\n    \"usageLimit\": 1000,\n    \"user_usage_limit\": 1,\n    \"valid_from\": \"2024-01-01T00:00:00Z\",\n    \"valid_until\": \"2024-12-31T23:59:59Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Free Shipping Coupon",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"FREESHIP\",\n    \"description\": \"Free shipping on orders over $75\",\n    \"discount_type\": \"fixed_amount\",\n    \"discount_value\": \"15.00\",\n    \"minimum_order_amount\": \"75.00\",\n    \"usageLimit\": null,\n    \"user_usage_limit\": 5,\n    \"valid_from\": \"2024-01-01T00:00:00Z\",\n    \"valid_until\": \"2024-12-31T23:59:59Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Invalid Coupon Code",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"INVALID123\",\n    \"userId\": {{userId}},\n    \"orderAmount\": \"100.00\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/validate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "validate"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Minimum Order Amount Validation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"SAVE20\",\n    \"userId\": {{userId}},\n    \"orderAmount\": \"50.00\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/validate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "validate"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Missing Required Fields",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"INCOMPLETE\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Invalid Discount Type",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"INVALID_TYPE\",\n    \"description\": \"Invalid discount type test\",\n    \"discount_type\": \"invalid_type\",\n    \"discount_value\": \"10.00\",\n    \"valid_from\": \"2024-01-01T00:00:00Z\",\n    \"valid_until\": \"2024-12-31T23:59:59Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Invalid Percentage (Over 100%)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"OVER100\",\n    \"description\": \"Invalid percentage test\",\n    \"discount_type\": \"percentage\",\n    \"discount_value\": \"150.00\",\n    \"valid_from\": \"2024-01-01T00:00:00Z\",\n    \"valid_until\": \"2024-12-31T23:59:59Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Invalid Date Range",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"INVALID_DATE\",\n    \"description\": \"Invalid date range test\",\n    \"discount_type\": \"percentage\",\n    \"discount_value\": \"10.00\",\n    \"valid_from\": \"2024-12-31T23:59:59Z\",\n    \"valid_until\": \"2024-01-01T00:00:00Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Invalid Coupon ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/invalid",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "invalid"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Test Maximum Discount Calculation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"SAVE20\",\n    \"orderAmount\": \"500.00\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/coupons/apply",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "coupons", "apply"]
+        }
+      },
+      "response": []
+    }
+  ]
+}

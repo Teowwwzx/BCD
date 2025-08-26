@@ -6,14 +6,16 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../contexts/CartContext';
 import { useAddresses } from '../../hooks/useAddresses';
+import { useCoupon } from '../../hooks/useCoupon';
 import { usePayments } from '../../hooks/usePayments';
 import { useShippingMethods } from '../../hooks/useShippingMethods';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import Modal from '../../components/Modal';
 import PaymentMethodSelector from '../../components/PaymentMethodSelector';
 import ShippingMethodSelector from '../../components/ShippingMethodSelector';
 import OrderSummary from '../../components/OrderSummary';
-import { Address, AddressType, PaymentMethod, CheckoutData } from '../../types';
+import { Address, AddressType, PaymentMethod, CheckoutData, Coupon } from '../../types';
 
 // Checkout steps enum
 enum CheckoutStep {
@@ -47,10 +49,9 @@ const StepIndicator = ({ currentStep }: { currentStep: CheckoutStep }) => {
               <div
                 className={`
                   flex h-12 w-12 items-center justify-center rounded-full border-2 text-lg
-                  ${
-                    isCompleted
-                      ? 'border-green-500 bg-green-500 text-white'
-                      : isActive
+                  ${isCompleted
+                    ? 'border-green-500 bg-green-500 text-white'
+                    : isActive
                       ? 'border-blue-500 bg-blue-500 text-white'
                       : 'border-gray-300 bg-white text-gray-400'
                   }
@@ -61,10 +62,9 @@ const StepIndicator = ({ currentStep }: { currentStep: CheckoutStep }) => {
               <span
                 className={`
                   mt-2 text-sm font-medium
-                  ${
-                    isActive
-                      ? 'text-blue-600'
-                      : isCompleted
+                  ${isActive
+                    ? 'text-blue-600'
+                    : isCompleted
                       ? 'text-green-600'
                       : 'text-gray-400'
                   }
@@ -77,8 +77,7 @@ const StepIndicator = ({ currentStep }: { currentStep: CheckoutStep }) => {
               <div
                 className={`
                   mx-4 h-0.5 w-16
-                  ${
-                    index < currentIndex ? 'bg-green-500' : 'bg-gray-300'
+                  ${index < currentIndex ? 'bg-green-500' : 'bg-gray-300'
                   }
                 `}
               />
@@ -147,7 +146,6 @@ const AddressForm = ({ onSave, onCancel }: { onSave: (address: Omit<Address, 'id
 };
 
 export default function CheckoutPage() {
-  // 1. State Hooks
   const [currentStep, setCurrentStep] = useState<CheckoutStep>(CheckoutStep.SHIPPING);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -162,12 +160,16 @@ export default function CheckoutPage() {
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [transactionStatus, setTransactionStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const router = useRouter();
 
   // 2. Context Hooks
   const { user, isLoggedIn, authIsLoading, isWalletConnected, connectWallet, walletAddress, walletBalance } = useAuth();
   const { cartItems, clearCart } = useCart();
   const { addresses, createAddress, loading: addressesLoading, error: addressesError } = useAddresses();
+  const { getCoupons, applyCoupon, loading: couponLoading } = useCoupon(); // Use our new hook
+
   const {
     processWalletPayment,
     paymentsIsLoading,
@@ -183,18 +185,46 @@ export default function CheckoutPage() {
     }
   }, [addresses]);
 
-  // Page Guards - Handle redirects in useEffect to avoid setState during render
+  useEffect(() => {
+    // Fetch all coupons when the component mounts
+    const fetchAvailableCoupons = async () => {
+      const coupons = await getCoupons();
+      if (coupons) {
+        setAvailableCoupons(coupons);
+      }
+    };
+    if (isLoggedIn) {
+      fetchAvailableCoupons();
+    }
+  }, [isLoggedIn, getCoupons]);
+
   useEffect(() => {
     if (!authIsLoading && !isLoggedIn) {
       router.push('/auth');
     }
   }, [authIsLoading, isLoggedIn, router]);
 
-  // useEffect(() => {
-  //   if (!authIsLoading && cartItems.length === 0) {
-  //     router.push('/products');
-  //   }
-  // }, [authIsLoading, cartItems.length, router]);
+  const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [cartItems]);
+  
+  const totalAmount = useMemo(() => {
+      const subtotalAfterDiscount = Math.max(0, subtotal - couponDiscount);
+      const taxAmount = subtotalAfterDiscount * 0.1; // 10% tax
+      return subtotalAfterDiscount + taxAmount + shippingCost;
+  }, [subtotal, couponDiscount, shippingCost]);
+
+  const canProceedToNext = useMemo(() => {
+    switch (currentStep) {
+      case CheckoutStep.SHIPPING:
+        return selectedAddressId && selectedShippingMethodId;
+      case CheckoutStep.PAYMENT:
+        return selectedPaymentMethod;
+      case CheckoutStep.REVIEW:
+        return true;
+      default:
+        return false;
+    }
+  }, [currentStep, selectedAddressId, selectedShippingMethodId, selectedPaymentMethod]);
+
 
   // 4. Performance Hooks
   const selectedAddress = useMemo(() => {
@@ -216,33 +246,21 @@ export default function CheckoutPage() {
   const handleShippingMethodSelect = useCallback((methodId: number, cost: number) => {
     setSelectedShippingMethodId(methodId);
     setShippingCost(cost);
-    // You might want to fetch the method name here or pass it from the component
   }, []);
 
-  const handleCouponApply = useCallback(async (code: string) => {
-    // Simulate coupon validation - replace with actual API call
-    try {
-      // Mock coupon validation
-      const mockCoupons: Record<string, number> = {
-        'SAVE10': 10,
-        'WELCOME20': 20,
-        'DISCOUNT15': 15,
-      };
-      
-      const discount = mockCoupons[code.toUpperCase()];
-      if (discount) {
-        setCouponCode(code.toUpperCase());
-        setCouponDiscount(discount);
-        return { discount };
-      } else {
-        return { discount: 0, error: 'Invalid coupon code' };
-      }
-    } catch (error) {
-      return { discount: 0, error: 'Failed to apply coupon' };
+  const handleSelectCoupon = useCallback(async (selectedCoupon: Coupon) => {
+    if (!user) return;
+    const result = await applyCoupon({ code: selectedCoupon.code, orderAmount: subtotal });
+    if (result) {
+      setCouponCode(selectedCoupon.code);
+      setCouponDiscount(result.discountAmount);
+      setIsCouponModalOpen(false);
+    } else {
+      alert("This coupon is not valid for your order.");
     }
-  }, []);
+  }, [user, applyCoupon, subtotal]);
 
-  const handleCouponRemove = useCallback(() => {
+  const handleRemoveCoupon = useCallback(() => {
     setCouponCode('');
     setCouponDiscount(0);
   }, []);
@@ -296,7 +314,7 @@ export default function CheckoutPage() {
         alert('Please connect your wallet first');
         return;
       }
-      
+
       if (!walletBalance || parseFloat(walletBalance) < calculateTotal()) {
         alert(`Insufficient wallet balance. Required: ${calculateTotal()} ETH, Available: ${walletBalance || '0'} ETH`);
         return;
@@ -308,7 +326,7 @@ export default function CheckoutPage() {
       alert('Please select a shipping address before proceeding.');
       return;
     }
-    
+
     if (!selectedShippingMethodId) {
       alert('Please select a shipping method before proceeding.');
       return;
@@ -317,13 +335,13 @@ export default function CheckoutPage() {
     setIsProcessingOrder(true);
     setTransactionStatus('processing');
     setPaymentResult(null);
-    
+
     try {
       // For marketplace payments, we need to identify the seller
       // In a multi-seller marketplace, this would need more complex logic
       // For now, we'll use the first item's seller or default to seller ID 1
       const sellerId = cartItems.length > 0 && cartItems[0].product?.sellerId ? cartItems[0].product.sellerId : 1;
-      
+
       const checkoutData: CheckoutData = {
         shippingAddressId: selectedAddressId,
         billingAddressId: selectedAddressId, // Using same address for billing
@@ -347,7 +365,7 @@ export default function CheckoutPage() {
       });
 
       setPaymentResult(result);
-      
+
       if (result.success) {
         setTransactionStatus('success');
         setOrderConfirmation(result);
@@ -372,19 +390,6 @@ export default function CheckoutPage() {
     }
   }, [selectedAddressId, selectedPaymentMethod, selectedShippingMethodId, couponCode, cartItems, processWalletPayment, clearCart, isWalletConnected, walletBalance, calculateTotal]);
 
-  const canProceedToNext = useMemo(() => {
-    switch (currentStep) {
-      case CheckoutStep.SHIPPING:
-        return selectedAddressId && selectedShippingMethodId;
-      case CheckoutStep.PAYMENT:
-        return selectedPaymentMethod;
-      case CheckoutStep.REVIEW:
-        return true;
-      default:
-        return false;
-    }
-  }, [currentStep, selectedAddressId, selectedShippingMethodId, selectedPaymentMethod]);
-
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
     router.push('/profile');
@@ -406,32 +411,27 @@ export default function CheckoutPage() {
               <h2 className="text-xl font-semibold mb-4">Shipping Address</h2>
               {addressesLoading && <p>Loading addresses...</p>}
               {addressesError && <p className='text-red-500'>{addressesError}</p>}
-              
+
               <div className="space-y-3 mb-4">
                 {addresses.map((address) => (
                   <div
                     key={address.id}
                     onClick={() => setSelectedAddressId(address.id)}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      selectedAddressId === address.id
-                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
-                        : 'border-gray-500 hover:border-gray-300'
-                    }`}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${selectedAddressId === address.id
+                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
+                      : 'border-gray-500 hover:border-gray-300'
+                      }`}
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className={`font-semibold ${
-                          selectedAddressId === address.id ? 'text-blue-900' : 'text-gray-900'
-                        }`}>{address.addr_line_1}</p>
-                        {address.addr_line_2 && <p className={`${
-                          selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
-                        }`}>{address.addr_line_2}</p>}
-                        <p className={`${
-                          selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
-                        }`}>{address.city}, {address.state} {address.postcode}</p>
-                        <p className={`${
-                          selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
-                        }`}>{address.country}</p>
+                        <p className={`font-semibold ${selectedAddressId === address.id ? 'text-blue-900' : 'text-gray-900'
+                          }`}>{address.addr_line_1}</p>
+                        {address.addr_line_2 && <p className={`${selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
+                          }`}>{address.addr_line_2}</p>}
+                        <p className={`${selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
+                          }`}>{address.city}, {address.state} {address.postcode}</p>
+                        <p className={`${selectedAddressId === address.id ? 'text-blue-800' : 'text-gray-700'
+                          }`}>{address.country}</p>
                       </div>
                       {address.is_default && (
                         <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
@@ -442,7 +442,7 @@ export default function CheckoutPage() {
                   </div>
                 ))}
               </div>
-              
+
               {!showAddressForm ? (
                 <button
                   onClick={() => setShowAddressForm(true)}
@@ -457,7 +457,7 @@ export default function CheckoutPage() {
                 />
               )}
             </div>
-            
+
             {/* Shipping Method Section */}
             {selectedAddressId && (
               <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -472,7 +472,7 @@ export default function CheckoutPage() {
             )}
           </div>
         );
-        
+
       case CheckoutStep.PAYMENT:
         return (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -482,14 +482,14 @@ export default function CheckoutPage() {
             />
           </div>
         );
-        
+
       case CheckoutStep.REVIEW:
         return (
           <div className="space-y-6">
             {/* Order Review */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h2 className="text-xl font-semibold mb-4">Review Your Order</h2>
-              
+
               {/* Shipping Details */}
               <div className="mb-6">
                 <h3 className="font-medium mb-2">Shipping Details</h3>
@@ -501,7 +501,7 @@ export default function CheckoutPage() {
                   <p>{selectedAddress?.country}</p>
                 </div>
               </div>
-              
+
               {/* Payment Details */}
               <div className="mb-6">
                 <h3 className="font-medium mb-2">Payment Method</h3>
@@ -512,7 +512,7 @@ export default function CheckoutPage() {
             </div>
           </div>
         );
-        
+
       case CheckoutStep.CONFIRMATION:
         return (
           <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
@@ -521,7 +521,7 @@ export default function CheckoutPage() {
             <p className="text-gray-600 mb-6">
               Thank you for your purchase. Your order has been successfully placed.
             </p>
-            
+
             {orderConfirmation && (
               <div className="bg-gray-50 p-4 rounded-md mb-6 text-left">
                 <h3 className="font-medium mb-2">Order Details:</h3>
@@ -531,7 +531,7 @@ export default function CheckoutPage() {
                 {orderConfirmation.transactionHash && (
                   <div className="mt-2">
                     <p><strong>Transaction Hash:</strong></p>
-                    <a 
+                    <a
                       href={`https://etherscan.io/tx/${orderConfirmation.transactionHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -543,7 +543,7 @@ export default function CheckoutPage() {
                 )}
               </div>
             )}
-            
+
             <div className="space-x-4">
               <button
                 onClick={() => router.push('/orders')}
@@ -560,7 +560,7 @@ export default function CheckoutPage() {
             </div>
           </div>
         );
-        
+
       default:
         return null;
     }
@@ -570,16 +570,16 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8 text-center">Checkout</h1>
-        
+        <h1 className="text-3xl font-bold mb-8 text-center text-gray-800">Checkout</h1>
+
         {/* Step Indicator */}
         <StepIndicator currentStep={currentStep} />
-        
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
             {getStepContent()}
-            
+
             {/* Navigation Buttons */}
             {currentStep !== CheckoutStep.CONFIRMATION && (
               <div className="flex justify-between mt-8">
@@ -590,7 +590,7 @@ export default function CheckoutPage() {
                 >
                   Previous
                 </button>
-                
+
                 <button
                   onClick={handleNextStep}
                   disabled={!canProceedToNext || isProcessingOrder || paymentsIsLoading || transactionStatus === 'processing'}
@@ -600,8 +600,8 @@ export default function CheckoutPage() {
                     <div className="flex items-center justify-center space-x-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       <span>
-                        {selectedPaymentMethod === PaymentMethod.Wallet 
-                          ? 'Processing Blockchain Transaction...' 
+                        {selectedPaymentMethod === PaymentMethod.Wallet
+                          ? 'Processing Blockchain Transaction...'
                           : 'Processing Payment...'
                         }
                       </span>
@@ -619,14 +619,14 @@ export default function CheckoutPage() {
                     isProcessingOrder || paymentsIsLoading
                       ? 'Processing...'
                       : currentStep === CheckoutStep.REVIEW
-                      ? `Place Order - ${selectedPaymentMethod === PaymentMethod.Wallet ? `${calculateTotal().toFixed(4)} ETH` : `$${calculateTotal().toFixed(2)}`}`
-                      : 'Next'
+                        ? `Place Order - ${selectedPaymentMethod === PaymentMethod.Wallet ? `${calculateTotal().toFixed(4)} ETH` : `$${calculateTotal().toFixed(2)}`}`
+                        : 'Next'
                   )}
                 </button>
               </div>
             )}
           </div>
-          
+
           {/* Order Summary Sidebar */}
           {currentStep !== CheckoutStep.CONFIRMATION && (
             <div className="lg:col-span-1">
@@ -637,8 +637,8 @@ export default function CheckoutPage() {
                   selectedShippingMethodName={selectedShippingMethodName}
                   couponCode={couponCode}
                   couponDiscount={couponDiscount}
-                  onCouponApply={handleCouponApply}
-                  onCouponRemove={handleCouponRemove}
+                  onSelectCouponClick={() => setIsCouponModalOpen(true)}
+                  onCouponRemove={handleRemoveCoupon}
                   isLoading={isProcessingOrder || paymentsIsLoading}
                 />
               </div>
@@ -647,7 +647,30 @@ export default function CheckoutPage() {
         </div>
       </main>
       <Footer />
-      
+
+      {/* --- NEW: Coupon Selection Modal --- */}
+      <Modal
+        isOpen={isCouponModalOpen}
+        onClose={() => setIsCouponModalOpen(false)}
+        title="Select a Coupon"
+      >
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          {availableCoupons.length > 0 ? availableCoupons.map(coupon => (
+            <div key={coupon.id} onClick={() => handleSelectCoupon(coupon)} className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500">
+              <div className="flex justify-between items-center">
+                <p className="font-bold text-lg text-green-500">{coupon.code}</p>
+                <p className="font-semibold text-lg">
+                  {coupon.discount_type === 'percentage' ? `${coupon.discount_value}% Off` : `$${coupon.discount_value} Off`}
+                </p>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{coupon.description}</p>
+            </div>
+          )) : (
+            <p>No coupons currently available.</p>
+          )}
+        </div>
+      </Modal>
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

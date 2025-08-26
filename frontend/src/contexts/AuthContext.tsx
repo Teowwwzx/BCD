@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 import { User } from '../types';
 import { connectWallet as web3ConnectWallet, getWalletBalance } from '../lib/web3';
+import { useToasts } from './ToastContext';
 
 // Define the shape of the authentication credentials for the login function
 interface AuthCredentials {
@@ -58,6 +59,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [authIsLoading, setAuthIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { addToast } = useToasts();
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -66,9 +68,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const balance = await getWalletBalance(address);
       setWalletBalance(balance);
-    } catch (err) {
+      // Cache the balance to localStorage for circuit breaker fallback
+      localStorage.setItem(`wallet_balance_${address}`, balance);
+    } catch (err: any) {
       console.error("Failed to fetch wallet balance", err);
-      setWalletBalance(null); // Clear balance on error
+      
+      // For circuit breaker errors, try to use cached balance
+      if (err.message?.includes('circuit breaker') || err.message?.includes('MetaMask')) {
+        const cachedBalance = localStorage.getItem(`wallet_balance_${address}`);
+        if (cachedBalance) {
+          console.warn('Using cached wallet balance due to MetaMask circuit breaker');
+          setWalletBalance(cachedBalance);
+          addToast(
+            'MetaMask is temporarily overloaded. Using cached balance.',
+            'info',
+            'Wallet Connection'
+          );
+        } else {
+          setWalletBalance('0.0'); // Default fallback
+          addToast(
+            'MetaMask is temporarily overloaded. Please try again in a moment.',
+            'error',
+            'Wallet Connection'
+          );
+        }
+      } else {
+        setWalletBalance(null); // Clear balance on other errors
+        addToast(
+          'Failed to fetch wallet balance. Please check your connection.',
+          'error',
+          'Wallet Error'
+        );
+      }
     } finally {
       setIsWalletLoading(false);
     }

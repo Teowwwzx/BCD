@@ -36,16 +36,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors`}
       >
         <ThemeProvider>
-          <AuthProvider>
-            <CartProvider>
-              <NotificationProvider>
-                <ToastProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <CartProvider>
+                <NotificationProvider>
                   {children}
                   <ToastContainer />
-                </ToastProvider>
-              </NotificationProvider>
-            </CartProvider>
-          </AuthProvider>
+                </NotificationProvider>
+              </CartProvider>
+            </AuthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

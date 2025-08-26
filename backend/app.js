@@ -105,6 +105,7 @@ const addressesRoutes = require('./routes/addresses');
 const paymentsRoutes = require('./routes/payments');
 const shippingMethodsRoutes = require('./routes/shipping-methods');
 const walletRoutes = require('./routes/wallet');
+const couponsRoutes = require('./routes/coupons');
 
 console.log('Loading auth routes...');
 const authRoutes = authRoutesFactory(prisma);
@@ -172,6 +173,10 @@ console.log('Loading wallet routes...');
 app.use('/api/wallets', walletRoutes);
 console.log('✓ Wallet routes loaded');
 
+console.log('Loading coupons routes...');
+app.use('/api/coupons', couponsRoutes);
+console.log('✓ Coupons routes loaded');
+
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -192,7 +197,8 @@ app.get('/', (req, res) => {
       stats: '/api/stats',
       addresses: '/api/addresses',
       payments: '/api/payments',
-      shippingMethods: '/api/shipping-methods'
+      shippingMethods: '/api/shipping-methods',
+      coupons: '/api/coupons'
     }
   });
 });

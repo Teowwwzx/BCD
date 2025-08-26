@@ -317,3 +317,51 @@ export interface ProductsParams {
     sortBy?: string;
     sellerId?: number;
 }
+
+export enum CouponStatus {
+    Active = 'active',
+    Inactive = 'inactive',
+    Expired = 'expired',
+}
+
+export enum DiscountType {
+    Percentage = 'percentage',
+    FixedAmount = 'fixed_amount',
+}
+
+export interface Coupon {
+    id: number;
+    code: string;
+    description?: string | null;
+    discount_type: DiscountType;
+    discount_value: number; // Prisma Decimal becomes number
+    minimum_order_amount?: number | null;
+    maximum_discount_amount?: number | null;
+    usageLimit?: number | null;
+    usage_count: number;
+    user_usage_limit?: number | null;
+    status: CouponStatus;
+    valid_from: string; // Dates are serialized as strings
+    valid_until: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// Type for the /api/coupons/validate endpoint payload
+export interface ValidateCouponPayload {
+    code: string;
+    userId: string;
+    orderAmount: number;
+}
+
+// Type for the /api/coupons/apply endpoint payload
+export interface ApplyCouponPayload {
+    code: string;
+    orderAmount: number;
+}
+
+// Expected response structure when applying a coupon
+export interface ApplyCouponResponse {
+    discountAmount: number;
+    newTotal: number;
+}

@@ -10,6 +10,7 @@ import { useCart } from '../../contexts/CartContext';
 import ProductCard from '../../components/ProductCard';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { useToasts } from '../../contexts/ToastContext';
 import { SuccessModal } from '../../components/Modal';
 import Pagination from '../../components/Pagination';
 
@@ -21,6 +22,7 @@ export default function ProductsPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [addedProduct, setAddedProduct] = useState<DisplayProduct | null>(null);
+    const { addToast } = useToasts();
 
     // 2. Context Hooks
     const router = useRouter();
@@ -84,7 +86,8 @@ export default function ProductsPage() {
             const dbId = parseInt(product.id.replace('db-', ''));
             await addToCart(dbId, 1, product.quantity);
             setAddedProduct(product);
-            setShowSuccessModal(true);
+            // setShowSuccessModal(true);
+            addToast('Product added to cart!', 'success');
         } catch (err) {
             console.error('Add to cart error:', err);
             // Error handling is already done in the CartContext
@@ -238,6 +241,9 @@ export default function ProductsPage() {
                 )}
             </div>
             <Footer />
+
+
+            
             {showSuccessModal && addedProduct && (
                 <SuccessModal
                     isOpen={showSuccessModal}

@@ -92,7 +92,14 @@ export default function NotificationBell() {
                 <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-hidden">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h3>
+                            <div className="flex items-center space-x-2">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h3>
+                                {unreadCount > 0 && (
+                                    <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs font-medium px-2 py-1 rounded-full">
+                                        {unreadCount} unread
+                                    </span>
+                                )}
+                            </div>
                             {hasUnreadInDisplay && (
                                 <button 
                                     onClick={handleMarkAllAsRead}
@@ -168,17 +175,19 @@ export default function NotificationBell() {
                         )}
                     </div>
                     
-                    {notifications.length > 5 && (
-                        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
-                            <Link 
-                                href="/notifications" 
-                                className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                                onClick={() => setIsOpen(false)}
-                            >
-                                View all notifications ({notifications.length})
-                            </Link>
-                        </div>
-                    )}
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+                        <Link 
+                            href="/notifications" 
+                            className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            {notifications.length > 5 ? (
+                                `View all notifications (${notifications.length})`
+                            ) : (
+                                'View notification details'
+                            )}
+                        </Link>
+                    </div>
                 </div>
             )}
         </div>
